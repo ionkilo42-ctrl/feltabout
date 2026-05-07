@@ -11,18 +11,17 @@ import time
 import asyncio
 import logging
 from collections import defaultdict
-
-logger = logging.getLogger("relatefx")
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional, AsyncGenerator
 
 import httpx
-from openai import OpenAI
+from dotenv import load_dotenv
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from dotenv import load_dotenv
+
+logger = logging.getLogger("relatefx")
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -460,13 +459,11 @@ class PostgresSessionManager:
         if self._engine is None:
             self._engine = create_async_engine(self.db_url, echo=False, pool_pre_ping=True)
             self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
-        from sqlalchemy.ext.asyncio import AsyncSession
         async with self._session_factory() as session:
             yield session
 
     async def create(self, session_id: Optional[str] = None):
         from models import Session, async_session
-        from sqlalchemy import select
         sid = session_id or uuid.uuid4().hex[:12]
         async with async_session() as db:
             session_obj = Session(session_id=sid, created_at=datetime.utcnow())
@@ -475,7 +472,7 @@ class PostgresSessionManager:
             return SessionState(session_id=sid, created_at=datetime.utcnow().isoformat())
 
     async def get(self, session_id: str) -> Optional[SessionState]:
-        from models import Session, Participant, Utterance, SafetyFlag, async_session
+        from models import Session, Participant, SafetyFlag, async_session
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
         async with async_session() as db:
@@ -499,7 +496,6 @@ class PostgresSessionManager:
 
     async def add_participant(self, session_id: str, name: str) -> Participant:
         from models import Participant as DBParticipant, async_session
-        from sqlalchemy import select
         p = Participant(id=uuid.uuid4().hex[:8], name=name)
         async with async_session() as db:
             db_p = DBParticipant(id=p.id, session_id=session_id, name=name)
@@ -631,7 +627,7 @@ class PostgresSessionManager:
 
 # ─── Auth router ──────────────────────────────────────────────────────────────
 
-from routers.auth import router as auth_router
+from routers.auth import router as auth_router  # noqa: E402
 app.include_router(auth_router)
 
 # ─── Auth dependency ──────────────────────────────────────────────────────────
@@ -923,8 +919,6 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
 
     # Validate token from query params when USE_AUTH=true
     token = ws.query_params.get("token", None)
-    user_id = None
-    user_name = "Anonymous"
 
     if USE_AUTH:
         if not token:
@@ -935,8 +929,6 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         if not payload:
             await ws.close(code=4001)
             return
-        user_id = payload.get("sub")
-        user_name = payload.get("email", "Anonymous")
 
     exists = await manager.get(session_id) is not None
     if not exists:
@@ -1080,19 +1072,6 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                     if is_high_risk or is_abuse:
                         await manager.lock_session(session_id)
 
-                        # Determine suspected victim and send private whisper
-                        participants_dict = await manager.get_participants(session_id)
-                        pids = list(participants_dict.keys())
-                        victim_ws = None
-                        abuser_ws = None
-                        if len(pids) == 2:
-                            if pids[0] == speaker_id:
-                                victim_ws = active_connections.get(session_id, set())
-                                # Find the other participant's websocket
-                                for conn in list(active_connections.get(session_id, set())):
-                                    # We can't identify which ws belongs to which user here easily
-                                    # Use broadcast with targeted whisper approach instead
-                                    pass
                         safety_whisper = (
                             "I'm checking in because I noticed some language in this conversation "
                             "that could be concerning. Are you safe right now? If you need support, "
@@ -1370,8 +1349,7 @@ async def join_voice(
     # ── Facilitator bot: connect backend as a LiveKit participant on first join ──
     # This allows the backend to publish TTS audio into the room
     from voice.livekit_integration import (
-        get_voice_room, set_voice_room, publish_facilitator_audio,
-        LIVEKIT_URL as LK_URL, LIVEKIT_API_KEY as LK_KEY, LIVEKIT_API_SECRET as LK_SECRET,
+        get_voice_room, set_voice_room, LIVEKIT_URL as LK_URL, LIVEKIT_API_KEY as LK_KEY, LIVEKIT_API_SECRET as LK_SECRET,
     )
     from livekit import api as lkapi, rtc as lk_rtc
 
@@ -1609,11 +1587,11 @@ async def review_session(
     # Mark all unreviewed safety flags as reviewed
     if USE_POSTGRES:
         from models import SafetyFlag, async_session
-        from sqlalchemy import select, update
+        from sqlalchemy import update
         async with async_session() as db:
             await db.execute(
                 update(SafetyFlag)
-                .where(SafetyFlag.session_id == session_id, SafetyFlag.reviewed_by_human == False)
+                .where(SafetyFlag.session_id == session_id, SafetyFlag.reviewed_by_human.is_(False))
                 .values(reviewed_by_human=True)
             )
             await db.commit()

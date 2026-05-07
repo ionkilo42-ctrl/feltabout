@@ -4,13 +4,12 @@ RelateFX — SQLAlchemy async models + database configuration
 
 import os
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     Column, String, Text, DateTime, ForeignKey, Boolean, Float, Integer,
-    Enum as SQLEnum, Index, func,
+    Enum as SQLEnum, Index,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 

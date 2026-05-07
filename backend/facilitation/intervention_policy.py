@@ -4,15 +4,17 @@ RelateFX — Intervention Policy
 Lightweight rule-based decision engine.
 Only calls LLM when a rule fires and the facilitator should intervene.
 """
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .types import (
     InterventionType,
     InterventionDecision,
     ConflictPattern,
-    TurnPhase,
 )
 from .conflict_detector import detect_conflict_patterns, get_pattern_severity
+
+if TYPE_CHECKING:
+    from .turn_manager import TurnManager
 
 
 # Threshold: how many consecutive messages before facilitator speaks in facilitation mode

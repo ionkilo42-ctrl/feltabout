@@ -6,7 +6,6 @@ One insert per user message — fire-and-forget, never blocks facilitation.
 import os
 import uuid
 import time
-import asyncio
 import logging
 
 from models import FacilitatorDecision, async_session

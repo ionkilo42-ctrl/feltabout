@@ -170,7 +170,8 @@ async def get_llm_intervention(
 
     # Try MiniMax if configured — wrap with 10s timeout to avoid blocking
     if LLM_PROVIDER == "minimax" and MINIMAX_API_KEY:
-        import asyncio, json as _json
+        import asyncio
+        import json as _json
         try:
             payload = {
                 "model": MINIMAX_MODEL,
@@ -192,7 +193,7 @@ async def get_llm_intervention(
 
             print(f"[RelateFX] Calling MiniMax for {intervention_type.value} intervention...")
             data = await asyncio.wait_for(_call_minimax(), timeout=10.0)
-            print(f"[RelateFX] MiniMax response received, status=ok")
+            print("[RelateFX] MiniMax response received, status=ok")
 
             content = ""
             choices = data.get("choices", [])
@@ -225,7 +226,7 @@ async def get_llm_intervention(
             else:
                 print("[RelateFX] MiniMax returned empty content, falling back to local")
         except asyncio.TimeoutError:
-            print(f"[RelateFX] MiniMax call timed out after 10s — falling back to local")
+            print("[RelateFX] MiniMax call timed out after 10s — falling back to local")
         except Exception as e:
             print(f"[RelateFX] MiniMax call failed: {type(e).__name__}: {e} — falling back to local")
 

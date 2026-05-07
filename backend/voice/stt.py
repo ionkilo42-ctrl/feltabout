@@ -18,7 +18,8 @@ Usage:
 import os
 import asyncio
 import logging
-from typing import Callable, Awaitable, Optional
+from importlib.util import find_spec
+from typing import Callable, Awaitable
 
 logger = logging.getLogger("relatefx.stt")
 
@@ -42,9 +43,7 @@ async def transcribe_livekit_room(
         logger.warning("DEEPGRAM_API_KEY not set — STT pipeline unavailable")
         return
 
-    try:
-        from livekit import api as lkapi
-    except ImportError:
+    if find_spec("livekit") is None:
         logger.warning("LiveKit SDK not installed — cannot subscribe to audio tracks")
         return
 

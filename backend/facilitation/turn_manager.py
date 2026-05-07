@@ -4,9 +4,13 @@ RelateFX — Turn Manager for speaker-listener mode
 Enforces structured turn-taking:
   SPEAKER_TURN → LISTENER_REFLECT → COMPLETE → (next speaker) SPEAKER_TURN...
 """
-from typing import Optional
+from typing import Mapping, Optional, Protocol
 
 from .types import TurnPhase
+
+
+class _ParticipantLike(Protocol):
+    name: str
 
 
 class TurnManager:
@@ -20,7 +24,7 @@ class TurnManager:
         self.turn_history: list[dict] = []  # {speaker_id, listener_id, phase}
         self.speaker_queue: list[str] = []  # participant IDs waiting to speak
 
-    def initialize(self, participants: dict[str, "Participant"]) -> None:
+    def initialize(self, participants: Mapping[str, _ParticipantLike]) -> None:
         """
         Set up the turn order from participants dict.
         Participants: dict of {participant_id: Participant}

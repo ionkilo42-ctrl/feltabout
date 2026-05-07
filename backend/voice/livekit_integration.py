@@ -169,7 +169,7 @@ async def publish_facilitator_audio(
     try:
         # Create and publish the audio track
         audio_track = rtc.AudioTrack.create_audio_track("facilitator_voice")
-        publication = await room.local_participant.publish_track(audio_track)
+        await room.local_participant.publish_track(audio_track)
 
         # Build the audio frame from raw PCM bytes
         audio_frame = rtc.AudioFrame(
@@ -185,7 +185,7 @@ async def publish_facilitator_audio(
 
         # Clean up — unpublish so the track doesn't linger
         await room.local_participant.unpublish_track(audio_track)
-        logger.debug(f"[Voice] facilitator audio published and unpublished")
+        logger.debug("[Voice] facilitator audio published and unpublished")
 
     except Exception as e:
         logger.warning(f"[Voice] failed to publish facilitator audio: {e}")

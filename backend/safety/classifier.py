@@ -4,7 +4,6 @@ RelateFX — Safety Classifier: Abuse-aware safety analysis
 Detects coercive control patterns beyond simple keyword matching.
 Rule-based fallback always runs; LLM call fires when API key is available.
 """
-import os
 import re
 import httpx
 import asyncio
@@ -81,7 +80,6 @@ def analyze_for_control(utterance: str, history: list[str]) -> dict:
     Rule-based analysis of an utterance + recent history for coercive control patterns.
     Returns risk assessment dict.
     """
-    t = utterance.lower()
     all_text = " ".join([utterance] + history).lower()
 
     isolation_matches = _match_patterns(all_text, ISOLATION_PATTERNS)
@@ -208,7 +206,7 @@ Analyze the full context for patterns of coercive control."""
                 resp.raise_for_status()
                 return resp.json()
 
-        data = await asyncio.wait_for(_call_minimax(), timeout=5.0)
+        await asyncio.wait_for(_call_minimax(), timeout=5.0)
     except asyncio.TimeoutError:
         print("[RelateFX] Safety classifier MiniMax timed out after 5s — using rule result")
     except Exception:
