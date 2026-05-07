@@ -1,0 +1,28 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+.playwright-cli/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Logs and OS/editor files
+*.log
+.DS_Store
