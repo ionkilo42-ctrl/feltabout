@@ -8,6 +8,7 @@ Endpoints:
 - GET /auth/me - Get current user info
 """
 
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,9 +85,16 @@ async def get_current_user(
 async def require_user(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
-    """Require authenticated user, raise 401 if not."""
-    if not current_user:
+    """Require authenticated user, raise 401 if not (dev mode returns dev user when auth disabled)."""
+    USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
+    
+    if USE_AUTH and not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Dev mode: return dev user when auth is disabled
+    if not current_user:
+        return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}
+    
     return current_user
 
 
@@ -106,7 +114,7 @@ async def request_magic_link(
     raw_token, invite_url = await auth.request_magic_link(data.email, data.next)
 
     return MagicLinkResponse(
-        message=f"Magic link sent! Check your email (or see server console for dev link)",
+        message="Magic link sent! Check your email (or see server console for dev link)",
     )
 
 
