@@ -1,6 +1,6 @@
 """Magic link token model for email-based authentication."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import hashlib
 
@@ -56,10 +56,7 @@ class MagicLinkToken(Base):
         """Create a new magic link token."""
         normalized_email = normalize_email(email)
         now = datetime.utcnow()
-        expiry = datetime(
-            now.year, now.month, now.day, now.hour, now.minute + expires_minutes,
-            tzinfo=None
-        )
+        expiry = now + timedelta(minutes=expires_minutes)
         
         return cls(
             email=normalized_email,
