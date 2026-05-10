@@ -7,8 +7,7 @@ for the signed-in user, sorted newest first.
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import List, Union, Optional
-from datetime import datetime
+from typing import List, Optional
 
 from app.db.session import get_db
 from app.models.reflection import Reflection

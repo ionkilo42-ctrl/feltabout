@@ -9,7 +9,6 @@ Endpoints:
 Privacy: All data is user-isolated. No clinical interpretation in responses.
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession

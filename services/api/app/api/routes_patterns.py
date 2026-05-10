@@ -10,11 +10,11 @@ No DB storage — in-memory cache only.
 
 import time
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.services.patterns_service import analyze_user_patterns, PatternInsight, PatternsResult
+from app.services.patterns_service import analyze_user_patterns, PatternsResult
 from app.services import ReflectionService
 from app.api.routes_reflections import require_user
 

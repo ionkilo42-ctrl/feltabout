@@ -4,7 +4,6 @@ Provides async SQLAlchemy session factory and dependency injection.
 """
 
 import os
-from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker

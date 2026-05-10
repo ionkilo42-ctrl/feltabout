@@ -11,13 +11,11 @@ Endpoints:
 """
 
 import os
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.models import Reflection
 from app.schemas.reflection import (
     CreateReflectionRequest,
     UpdateReflectionRequest,

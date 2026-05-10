@@ -10,9 +10,6 @@ Tests the complete user loop:
 7. Verify delete behavior
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
 from app.schemas.emotional_analysis import (
     InternalAnalysis,
@@ -23,7 +20,6 @@ from app.schemas.emotional_analysis import (
     PrivacyLevel,
 )
 from app.services.extraction_service import get_fallback_analysis
-from app.services.feelflow_service import FeelFlowService
 
 
 class TestAlphaFlow:
@@ -80,7 +76,7 @@ class TestAlphaFlow:
     def test_memory_candidate_can_be_saved(self):
         """Step 5: Memory candidate can be converted to create request."""
         from app.schemas.core_memory import CreateCoreMemoryRequest
-        from app.schemas.emotional_analysis import EmotionSignal, NeedCategory
+        from app.schemas.emotional_analysis import NeedCategory
         
         candidate = MemoryCandidate(
             title="Feeling dismissed at work",

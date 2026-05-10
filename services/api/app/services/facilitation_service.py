@@ -240,7 +240,7 @@ Style: calm, warm, practical, non-clinical. Avoid therapy language. Be specific 
             "emotional_summary": f"It sounds like you're navigating something difficult. You mentioned feeling: {reflection.get('feelings', 'unsure')[:100]}.",
             "needs_summary": f"Underneath the situation, you may be looking for: {reflection.get('needs', 'understanding and respect')[:100]}.",
             "assumptions": "Consider: What story am I telling myself? Is there another perspective?",
-            "reframe": f"Before the conversation, you might say to yourself: 'I want to understand their perspective too.'",
+            "reframe": "Before the conversation, you might say to yourself: 'I want to understand their perspective too.'",
             "avoid_saying": "1. 'You're always...' (absolute statements)\n2. 'You made me feel...' (blame language)\n3. Starting with accusations before sharing your experience.",
             "conversation_opener": f"I've been thinking about something and I'd like to talk with you when we both have time. {reflection.get('situation', 'Our last conversation')[:50]}...",
             "followup_questions": "1. 'Can you help me understand your perspective?'\n2. 'What do you need from me?'\n3. 'How can I support you?'",

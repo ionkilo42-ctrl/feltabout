@@ -5,7 +5,7 @@ import uuid
 import hashlib
 import secrets
 
-from sqlalchemy import String, Text, DateTime, ForeignKey, Column, Integer, Boolean
+from sqlalchemy import String, Text, DateTime, ForeignKey, Column, Integer
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base

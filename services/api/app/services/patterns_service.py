@@ -187,7 +187,7 @@ def _build_insight(type: str, keyword_group: list[str], label: str, occurrences:
         confidence = "high" if occurrences >= 3 else "medium" if occurrences >= 2 else "low"
         return PatternInsight(
             type=type,
-            insight=f"You've mentioned some recurring emotional themes across your reflections.",
+            insight="You've mentioned some recurring emotional themes across your reflections.",
             occurrences=occurrences,
             keywords=unique_keywords[:5],
             confidence=confidence,

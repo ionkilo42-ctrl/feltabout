@@ -17,7 +17,6 @@ from app.schemas.reflection import (
     UpdateReflectionRequest,
     CreateFeedbackRequest,
     UpdateFeedbackRequest,
-    ReflectionResponse,
 )
 from app.services.encryption_service import get_encryption_service
 

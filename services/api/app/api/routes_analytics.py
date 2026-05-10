@@ -6,12 +6,11 @@ These are for product telemetry and output quality review.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.models import Reflection, ReflectionFeedback, ReflectionOutput, SafetyEvent
-from app.services import ReflectionService
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])

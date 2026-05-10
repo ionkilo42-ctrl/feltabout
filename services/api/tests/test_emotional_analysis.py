@@ -1,6 +1,5 @@
 """Tests for emotional_analysis schemas."""
 
-import json
 import pytest
 from pydantic import ValidationError
 

@@ -1,6 +1,5 @@
 """FeelFlow Service — emotion timeline and summary data."""
 
-from collections import Counter
 from typing import Optional
 
 from sqlalchemy import select, func

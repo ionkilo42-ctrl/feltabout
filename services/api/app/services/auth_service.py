@@ -16,7 +16,7 @@ from typing import Optional
 
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select
 
 from app.models.user import User
 from app.models.magic_link_token import MagicLinkToken, hash_token
@@ -154,12 +154,12 @@ class AuthService:
         magic_token = result.scalar_one_or_none()
         
         if not magic_token:
-            logger.warning(f"Magic link token not found or already used")
+            logger.warning("Magic link token not found or already used")
             return None
         
         # Check if valid
         if not magic_token.is_valid():
-            logger.warning(f"Magic link token expired or invalid")
+            logger.warning("Magic link token expired or invalid")
             return None
         
         # Get email from token

@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.conversation_space_service import ConversationSpaceService
-from app.services.auth_service import decode_token
 from app.services.ws_token_service import get_ws_token_service
 from app.api.routes_auth import require_user
 

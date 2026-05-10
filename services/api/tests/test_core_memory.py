@@ -1,9 +1,7 @@
 """Tests for Core Memory consent flow and privacy."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 
-from app.schemas.core_memory import CreateCoreMemoryRequest, UpdateCoreMemoryRequest
+from app.schemas.core_memory import CreateCoreMemoryRequest
 from app.schemas.emotional_analysis import (
     EmotionSignal,
     EmotionCategory,
@@ -12,7 +10,6 @@ from app.schemas.emotional_analysis import (
     MemoryCandidateReason,
     PrivacyLevel,
 )
-from app.services.core_memory_service import CoreMemoryService
 from app.services.extraction_service import get_fallback_analysis
 
 
@@ -21,7 +18,6 @@ class TestCoreMemoryServiceCreate:
 
     def test_create_requires_user_confirmation(self):
         """Created memories always have user_confirmed=True."""
-        from app.models.core_memory import CoreMemory
         
         # The service sets user_confirmed=True on creation
         # This is verified by the model defaults
