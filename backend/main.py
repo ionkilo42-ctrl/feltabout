@@ -10,6 +10,8 @@ import json
 import time
 import asyncio
 import logging
+import hmac
+import base64
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -914,9 +916,6 @@ async def inject_voice_utterance(session_id: str, speaker_id: str, text: str) ->
 # ─── WebSocket Handler ─────────────────────────────────────────────────────────
 
 # ─── Scoped WS Token Validation (Phase 4) ────────────────────────────────────
-import hmac
-import base64
-import time
 
 def _get_ws_secret() -> bytes:
     secret = os.environ.get("WS_SHARED_SECRET")
@@ -1392,7 +1391,7 @@ async def create_session(
     """
     # Internal API key check for services/api → backend bridge
     internal_key = os.environ.get("INTERNAL_API_KEY")
-    auth_header_ok = internal_key and Header(None) and True  # placeholder
+    internal_key and Header(None) and True  # placeholder
     
     if USE_AUTH and not current_user:
         # Check for internal API key
