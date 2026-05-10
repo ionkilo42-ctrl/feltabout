@@ -16,8 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
+
 from app.main import app
 from app.db.session import init_db
+from app.db.session import async_session_factory
+from app.models import Reflection
 
 # ─── Test client fixture ───────────────────────────────────────────────────────
 
@@ -58,6 +62,8 @@ async def test_create_reflection(client):
     assert resp.status_code == 201
     data = resp.json()
     assert data["title"] == payload["title"]
+    assert data["situation"] == payload["situation"]
+    assert data["feelings"] == payload["feelings"]
     assert data["status"] == "draft"
     assert "id" in data
     assert "created_at" in data
@@ -105,10 +111,20 @@ async def test_update_reflection(client):
     rid = resp.json()["id"]
 
     # Update
-    resp2 = await client.put(f"/reflections/{rid}", json={"title": "New title", "status": "archived"})
+    resp2 = await client.put(
+        f"/reflections/{rid}",
+        json={
+            "title": "New title",
+            "status": "archived",
+            "situation": "Updated plain situation",
+            "feelings": "Updated plain feelings",
+        },
+    )
     assert resp2.status_code == 200
     assert resp2.json()["title"] == "New title"
     assert resp2.json()["status"] == "archived"
+    assert resp2.json()["situation"] == "Updated plain situation"
+    assert resp2.json()["feelings"] == "Updated plain feelings"
 
 
 # ─── Delete Reflection ─────────────────────────────────────────────────────────
@@ -158,6 +174,12 @@ async def test_generate_plan_local_fallback(client):
     # Reflection should now be "completed"
     resp3 = await client.get(f"/reflections/{rid}")
     assert resp3.json()["status"] == "completed"
+
+    async with async_session_factory() as session:
+        result = await session.execute(select(Reflection).where(Reflection.id == rid))
+        stored = result.scalar_one()
+        assert stored.situation.startswith("enc:v1:")
+        assert stored.feelings.startswith("enc:v1:")
 
 
 # ─── Safety: Crisis keyword triggers crisis response ───────────────────────────

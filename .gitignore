@@ -23,6 +23,15 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
 # Logs and OS/editor files
 *.log
 .DS_Store

@@ -7,6 +7,14 @@ import { useAuthStore } from '@/store/sessionStore'
 import { apiUrl, wsUrl } from '@/lib/api'
 import Link from 'next/link'
 
+// ─── MVP 1 Configuration ─────────────────────────────────────────────────────
+
+/**
+ * Live guided sessions are an MVP 2 feature.
+ * Set to true once the WebSocket session backend is implemented.
+ */
+const LIVE_SESSIONS_ENABLED = false;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Participant {
@@ -75,7 +83,7 @@ function SessionSetupView({ onCreateSpace }: { onCreateSpace: (name: string) => 
             <h2>Start a conversation</h2>
             <p>Create a private space and share an invite link when you're ready.</p>
           </div>
-          
+
           <input
             type="text"
             placeholder="Name this conversation (optional)"
@@ -84,20 +92,20 @@ function SessionSetupView({ onCreateSpace }: { onCreateSpace: (name: string) => 
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
             disabled={isCreating}
           />
-          
-          <button 
-            onClick={handleCreate} 
+
+          <button
+            onClick={handleCreate}
             disabled={isCreating}
           >
             {isCreating ? 'Creating...' : 'Create conversation space'}
           </button>
         </div>
-        
+
         <aside className="setup-aside">
           <span className="setup-aside-title">Private & secure</span>
           <p>
-            Your conversation is private. Share the invite link when 
-            the other person is ready. Feltabout helps keep difficult 
+            Your conversation is private. Share the invite link when
+            the other person is ready. Feltabout helps keep difficult
             conversations clearer and more grounded.
           </p>
         </aside>
@@ -108,12 +116,12 @@ function SessionSetupView({ onCreateSpace }: { onCreateSpace: (name: string) => 
 
 // ─── Space Ready View ─────────────────────────────────────────────────────────
 
-function SpaceReadyView({ 
-  inviteUrl, 
-  onStartNow 
-}: { 
+function SpaceReadyView({
+  inviteUrl,
+  onStartNow
+}: {
   inviteUrl: string
-  onStartNow: () => void 
+  onStartNow: () => void
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -142,11 +150,11 @@ function SpaceReadyView({
             Share this private link when the other person is ready to join.
             The link expires in 7 days.
           </p>
-          
+
           <div className="invite-link-box">
             <span className="invite-link-text">{inviteUrl}</span>
           </div>
-          
+
           <div className="invite-actions">
             <button onClick={handleCopyInvite} className={copied ? 'copied' : ''}>
               {copied ? '✓ Copied!' : 'Copy invite link'}
@@ -155,9 +163,9 @@ function SpaceReadyView({
               I'm ready to start
             </button>
           </div>
-          
+
           <p className="waiting-note">
-            You can start the conversation solo and the other person 
+            You can start the conversation solo and the other person
             can join later using the same link.
           </p>
         </div>
@@ -204,13 +212,13 @@ export default function SessionPage() {
   const [playbackSession, setPlaybackSession] = useState<string | null>(null)
   const [playbackMessages, setPlaybackMessages] = useState<Message[]>([])
   const [playbackLoading, setPlaybackLoading] = useState(false)
-  
+
   // Setup states
   const [setupStep, setSetupStep] = useState<'input' | 'ready' | 'active' | 'joining'>('input')
   const [inviteUrl, setInviteUrl] = useState('')
   const [spaceId, setSpaceId] = useState('')
   const [websocketSessionId, setWebsocketSessionId] = useState<string | null>(null)
-  
+
   // Check for joiner data on mount
   useEffect(() => {
     const joinData = sessionStorage.getItem('feltabout_joining')
@@ -220,6 +228,11 @@ export default function SessionPage() {
         const data = JSON.parse(joinData)
         setWebsocketSessionId(data.websocket_session_id)
         setName(data.display_name || 'Guest')
+        if (!LIVE_SESSIONS_ENABLED) {
+          setJoined(true)
+          setSetupStep('active')
+          return
+        }
         // Start connecting immediately with the scoped token
         setSetupStep('joining')
         setTimeout(() => {
@@ -279,9 +292,17 @@ export default function SessionPage() {
   }
 
   const handleStartNow = () => {
-    // Start the conversation with the websocket session ID
-    // The space's websocket_session_id is what we connect to
-    // We need to get it from the space
+    // MVP 1 fallback: Live guided sessions are not yet available
+    if (!LIVE_SESSIONS_ENABLED) {
+      const displayName = useAuthStore.getState().userName || 'Guest'
+      setName(displayName)
+      setJoined(true)
+      setSetupStep('active')
+      // Don't connect to WebSocket - show the "coming soon" state instead
+      return
+    }
+
+    // Original flow for when LIVE_SESSIONS_ENABLED is true
     const token = useAuthStore.getState().token
     if (!token || !spaceId) return
 
@@ -291,7 +312,6 @@ export default function SessionPage() {
       .then(res => res.json())
       .then(data => {
         if (data.websocket_session_id) {
-          // Use the display name from auth store or ask
           const displayName = useAuthStore.getState().userName || 'Host'
           setName(displayName)
           connectToSession(data.websocket_session_id, displayName)
@@ -305,7 +325,7 @@ export default function SessionPage() {
   const connectToSession = (sid: string, participantName: string, wsAccessToken?: string) => {
     nameRef.current = participantName
     useSessionStore.getState().clearSession()
-    const wsEndpoint = wsAccessToken 
+    const wsEndpoint = wsAccessToken
       ? wsUrl(`/ws/${sid}?token=${encodeURIComponent(wsAccessToken)}`)
       : wsUrl(`/ws/${sid}`)
     const ws = new WebSocket(wsEndpoint)
@@ -583,8 +603,8 @@ export default function SessionPage() {
 
   if (setupStep === 'ready') {
     return (
-      <SpaceReadyView 
-        inviteUrl={inviteUrl} 
+      <SpaceReadyView
+        inviteUrl={inviteUrl}
         onStartNow={handleStartNow}
       />
     )
@@ -593,6 +613,48 @@ export default function SessionPage() {
   if (setupStep === 'input') {
     return (
       <SessionSetupView onCreateSpace={handleCreateSpace} />
+    )
+  }
+
+  // ─── MVP 1 Fallback: Live sessions not available ───────────────────────────
+
+  // Early return when live sessions are disabled - show fallback instead of conversation UI
+  if (!LIVE_SESSIONS_ENABLED) {
+    return (
+      <main className="app">
+        <header className="app-header">
+          <div className="brand-lockup">
+            <Link href="/">
+              <img className="brand-mark" src="/logo.png" alt="Feltabout" />
+            </Link>
+          </div>
+        </header>
+
+        <div className="session-room">
+          <div className="participants-bar">
+            <span className="participant-chip you">{useAuthStore.getState().userName || 'Guest'} (you)</span>
+          </div>
+
+          <div className="coming-soon-banner">
+            <h3>Live guided sessions are coming soon</h3>
+            <p>For now, use reflections and shared conversation spaces to prepare for meaningful conversations.</p>
+            <Link href="/reflections" className="coming-soon-link">Go to Reflections →</Link>
+          </div>
+
+          <div className="messages">
+            <div className="status">Live guided sessions are not yet available.</div>
+          </div>
+
+          <div className="input-area">
+            <input
+              type="text"
+              placeholder="Live sessions are not available yet"
+              disabled={true}
+            />
+            <button className="send-btn" disabled={true}>Send</button>
+          </div>
+        </div>
+      </main>
     )
   }
 
@@ -753,12 +815,22 @@ export default function SessionPage() {
           )}
         </div>
 
+        {!LIVE_SESSIONS_ENABLED && (
+          <div className="coming-soon-banner">
+            <h3>Live guided sessions are coming soon</h3>
+            <p>For now, use reflections and shared conversation spaces to prepare for meaningful conversations.</p>
+            <Link href="/reflections" className="coming-soon-link">Go to Reflections →</Link>
+          </div>
+        )}
+
         <div className="messages">
           {messages.length === 0 && (
             <div className="status">
               {wsReady
                 ? 'Take a moment to share what\'s on your mind...'
-                : 'Preparing your conversation space…'}
+                : LIVE_SESSIONS_ENABLED
+                  ? 'Preparing your conversation space…'
+                  : 'Live guided sessions are not yet available.'}
             </div>
           )}
           {messages.map(msg => (
@@ -919,13 +991,17 @@ export default function SessionPage() {
         <div className="input-area">
           <input
             type="text"
-            placeholder={wsReady ? "Type your message..." : "Connecting..."}
+            placeholder={LIVE_SESSIONS_ENABLED
+              ? (wsReady ? "Type your message..." : "Connecting...")
+              : "Live sessions are not available yet"}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!wsReady}
+            disabled={!wsReady || !LIVE_SESSIONS_ENABLED}
           />
-          <button className="send-btn" onClick={sendMessage} disabled={!wsReady}>Send</button>
+          <button className="send-btn" onClick={sendMessage} disabled={!wsReady || !LIVE_SESSIONS_ENABLED}>
+            Send
+          </button>
         </div>
       </div>
     </main>

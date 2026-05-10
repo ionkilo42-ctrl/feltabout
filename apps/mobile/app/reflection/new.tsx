@@ -16,11 +16,14 @@ import { WIZARD_STEPS } from "../../src/types";
 import { createReflection, getReflection, updateReflection } from "../../src/api/reflections";
 import type { CreateReflectionRequest } from "../../src/types";
 import { GradientButton } from "../../src/components/GradientButton";
+import { AuthGate } from "../../src/auth/AuthGate";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 export default function NewReflectionScreen() {
   const router = useRouter();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -31,7 +34,7 @@ export default function NewReflectionScreen() {
   const value = answers[current.key] ?? "";
 
   useEffect(() => {
-    if (!edit) return;
+    if (!edit || authLoading || !isAuthenticated) return;
     setLoadingEdit(true);
     setLoadError("");
     getReflection(edit)
@@ -48,7 +51,7 @@ export default function NewReflectionScreen() {
       })
       .catch(() => setLoadError("Could not load this reflection for editing. Check the API connection and try again."))
       .finally(() => setLoadingEdit(false));
-  }, [edit]);
+  }, [edit, authLoading, isAuthenticated]);
 
   async function retryLoadEdit() {
     if (!edit) return;
@@ -88,22 +91,23 @@ export default function NewReflectionScreen() {
   }
 
   async function handleSave() {
-    setAnswers((prev) => ({ ...prev, [current.key]: value }));
+    const nextAnswers = { ...answers, [current.key]: value };
+    setAnswers(nextAnswers);
     setSaving(true);
     try {
       const title =
-        answers.situation?.slice(0, 40) ||
+        nextAnswers.situation?.slice(0, 40) ||
         value.slice(0, 40) ||
         "Untitled Reflection";
       const data: CreateReflectionRequest = {
         title,
-        situation: answers.situation ?? "",
-        feelings: answers.feelings ?? "",
-        interpretation: answers.interpretation ?? "",
-        needs: answers.needs ?? "",
-        fears: answers.fears ?? "",
-        desired_outcome: answers.desired_outcome ?? "",
-        message_draft: answers.message_draft ?? "",
+        situation: nextAnswers.situation ?? "",
+        feelings: nextAnswers.feelings ?? "",
+        interpretation: nextAnswers.interpretation ?? "",
+        needs: nextAnswers.needs ?? "",
+        fears: nextAnswers.fears ?? "",
+        desired_outcome: nextAnswers.desired_outcome ?? "",
+        message_draft: nextAnswers.message_draft ?? "",
       };
       const reflection = edit
         ? await updateReflection(edit, data)
@@ -118,6 +122,14 @@ export default function NewReflectionScreen() {
 
   const isLast = step === WIZARD_STEPS.length - 1;
   const progress = (step + 1) / WIZARD_STEPS.length;
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <AuthGate message="Sign in to create and save Feltabout reflections.">
+        <View />
+      </AuthGate>
+    );
+  }
 
   if (loadingEdit) {
     return (

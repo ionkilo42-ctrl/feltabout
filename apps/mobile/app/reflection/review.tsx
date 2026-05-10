@@ -13,21 +13,32 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getReflection } from "../../src/api/reflections";
 import type { Reflection } from "../../src/types";
 import { GradientButton } from "../../src/components/GradientButton";
+import { AuthGate } from "../../src/auth/AuthGate";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 export default function ReviewScreen() {
   const router = useRouter();
   const { reflectionId } = useLocalSearchParams<{ reflectionId: string }>();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!reflectionId) return;
+    if (!reflectionId || authLoading || !isAuthenticated) return;
     getReflection(reflectionId)
       .then(setReflection)
       .catch(() => Alert.alert("Error", "Could not load reflection."))
       .finally(() => setLoading(false));
-  }, [reflectionId]);
+  }, [reflectionId, authLoading, isAuthenticated]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <AuthGate message="Sign in to review your saved reflection.">
+        <View />
+      </AuthGate>
+    );
+  }
 
   if (loading) {
     return (

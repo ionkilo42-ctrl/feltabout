@@ -14,6 +14,12 @@ export interface Participant {
   emotion: string
 }
 
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+}
+
 interface SessionStore {
   myId: string
   otherParticipant: Participant | null
@@ -25,9 +31,11 @@ interface SessionStore {
 interface AuthStore {
   token: string
   userId: string
+  userEmail: string
   userName: string
-  setAuth: (token: string, userId: string, name: string) => void
+  setAuth: (token: string, userId: string, name: string, email?: string) => void
   logout: () => void
+  isLoggedIn: () => boolean
 }
 
 export const useSessionStore = create<SessionStore>((set) => ({
@@ -40,12 +48,14 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: '',
       userId: '',
+      userEmail: '',
       userName: '',
-      setAuth: (token, userId, name) => set({ token, userId, userName: name }),
-      logout: () => set({ token: '', userId: '', userName: '' }),
+      setAuth: (token, userId, name, email = '') => set({ token, userId, userName: name, userEmail: email }),
+      logout: () => set({ token: '', userId: '', userEmail: '', userName: '' }),
+      isLoggedIn: () => !!get().token,
     }),
     {
       name: 'feltabout-auth',

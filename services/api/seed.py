@@ -19,7 +19,7 @@ DATABASE_URL = os.environ.get(
 REFLECTIONS = [
     {
         "title": "Talk with my partner about division of chores",
-        "situation": "We had a tense morning where I felt overwhelmed with chores while they seemedrelaxed.",
+        "situation": "We had a tense morning where I felt overwhelmed with chores while they seemed relaxed.",
         "feelings": "Frustrated, unheard, exhausted",
         "interpretation": "Maybe they don't care about sharing the load equally",
         "needs": "Support, recognition, partnership",
@@ -55,9 +55,11 @@ async def seed():
     parser.add_argument("--reset", action="store_true", help="Delete dev-user reflections before inserting seed data.")
     args = parser.parse_args()
 
-    from sqlalchemy import delete
+    from sqlalchemy import delete, select
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-    from main import Base, Reflection, ReflectionOutput, SafetyEvent, User
+    from app.models import Base, Reflection, ReflectionOutput, SafetyEvent, User
+    from app.schemas.reflection import CreateReflectionRequest
+    from app.services.reflection_service import ReflectionService
 
     engine = create_async_engine(DATABASE_URL, echo=False)
     async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -75,7 +77,7 @@ async def seed():
         )
         await session.merge(user)
         if args.reset:
-            dev_reflection_ids = delete_dev_reflection_ids()
+            dev_reflection_ids = select(Reflection.id).where(Reflection.user_id == "dev-user-001")
             await session.execute(
                 delete(ReflectionOutput).where(
                     ReflectionOutput.reflection_id.in_(dev_reflection_ids)
@@ -88,32 +90,15 @@ async def seed():
                 delete(Reflection).where(Reflection.user_id == "dev-user-001")
             )
         for data in REFLECTIONS:
-            reflection = Reflection(
-                user_id="dev-user-001",
-                title=data["title"],
-                situation=data["situation"],
-                feelings=data["feelings"],
-                interpretation=data["interpretation"],
-                needs=data["needs"],
-                fears=data["fears"],
-                desired_outcome=data["desired_outcome"],
-                message_draft=data["message_draft"],
-                status="draft",
+            await ReflectionService.create(
+                session,
+                "dev-user-001",
+                CreateReflectionRequest(**data),
             )
-            session.add(reflection)
-        await session.commit()
 
     action = "Reset and seeded" if args.reset else "Seeded"
     print(f"{action} {len(REFLECTIONS)} reflections.")
     await engine.dispose()
-
-
-def delete_dev_reflection_ids():
-    from sqlalchemy import select
-    from main import Reflection
-
-    return select(Reflection.id).where(Reflection.user_id == "dev-user-001")
-
 
 if __name__ == "__main__":
     asyncio.run(seed())

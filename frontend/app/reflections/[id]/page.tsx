@@ -271,7 +271,7 @@ const styles = `
     font-size: 1.75rem;
     font-weight: 600;
     color: var(--text);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     margin-bottom: 12px;
   }
 

@@ -9,6 +9,7 @@ from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm import selectinload
 
 from app.models import Reflection, ReflectionOutput, ReflectionFeedback, User
@@ -62,7 +63,7 @@ def _decrypt_reflection(reflection: Reflection) -> None:
     for field in REFLECTION_SENSITIVE_FIELDS:
         value = getattr(reflection, field, None)
         if value:
-            setattr(reflection, field, enc.decrypt(value))
+            set_committed_value(reflection, field, enc.decrypt(value))
 
 
 def _decrypt_output(output: ReflectionOutput) -> None:
@@ -71,7 +72,7 @@ def _decrypt_output(output: ReflectionOutput) -> None:
     for field in OUTPUT_SENSITIVE_FIELDS:
         value = getattr(output, field, None)
         if value:
-            setattr(output, field, enc.decrypt(value))
+            set_committed_value(output, field, enc.decrypt(value))
 
 
 def _encrypt_output_fields(plan_data: dict) -> dict:
@@ -153,6 +154,7 @@ class ReflectionService:
         db.add(reflection)
         await db.commit()
         await db.refresh(reflection)
+        _decrypt_reflection(reflection)
         return reflection
     
     @staticmethod
@@ -240,6 +242,7 @@ class ReflectionService:
 
         await db.commit()
         await db.refresh(reflection)
+        _decrypt_reflection(reflection)
         return reflection
     
     @staticmethod

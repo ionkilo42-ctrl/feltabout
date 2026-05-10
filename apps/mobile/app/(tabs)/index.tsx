@@ -1,12 +1,14 @@
 import { useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GradientButton } from "../../src/components/GradientButton";
 import { BrandMark } from "../../src/components/BrandMark";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { session, loading, isAuthenticated, signOut } = useAuth();
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -20,15 +22,37 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.actions}>
-        <GradientButton label="Start a new reflection" onPress={() => router.push("/reflection/new")} />
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push("/(tabs)/reflections")}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.secondaryButtonText}>View reflections</Text>
-        </TouchableOpacity>
+        {loading ? (
+          <ActivityIndicator color={colors.text} />
+        ) : isAuthenticated ? (
+          <>
+            <Text style={styles.accountText}>
+              Signed in as {session?.user.display_name || session?.user.name || session?.user.email}
+            </Text>
+            <GradientButton label="Start a reflection" onPress={() => router.push("/reflection/new")} />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.push("/(tabs)/reflections")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.secondaryButtonText}>View saved reflections</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quietButton} onPress={signOut}>
+              <Text style={styles.quietButtonText}>Sign out</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <GradientButton label="Sign in" onPress={() => router.push("/auth")} />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.push("/auth?mode=register")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.secondaryButtonText}>Create account</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       <View style={styles.info}>
@@ -50,8 +74,11 @@ const styles = StyleSheet.create({
   heroTagline: { fontSize: 20, color: colors.textSoft, marginTop: 6, fontWeight: "500" },
   heroCopy: { fontSize: 15, color: colors.textMuted, lineHeight: 24, textAlign: "center", marginTop: 18, maxWidth: 310 },
   actions: { gap: 12, marginBottom: 34 },
+  accountText: { color: colors.textQuiet, fontSize: 13, textAlign: "center", marginBottom: 2 },
   secondaryButton: { backgroundColor: "transparent", paddingVertical: 17, borderRadius: radii.pill, alignItems: "center", borderWidth: 1, borderColor: colors.border },
   secondaryButtonText: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  quietButton: { alignItems: "center", paddingVertical: 8 },
+  quietButtonText: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
   info: { padding: 22, borderRadius: radii.card, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
   infoEyebrow: { fontSize: 12, color: colors.textQuiet, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
   infoTitle: { fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 10, lineHeight: 25 },

@@ -5,7 +5,7 @@ Handles:
 - Creating conversation spaces with secure invite tokens
 - Participant management (owner + guests)
 - Access control enforcement
-- WebSocket session bridge to backend/main.py
+- Optional MVP 2 WebSocket session bridge to backend/main.py
 """
 
 import os
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Backend URL for internal session creation
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8001")
+ENABLE_MVP2_BACKEND_BRIDGE = os.environ.get("ENABLE_MVP2_BACKEND_BRIDGE", "false").lower() == "true"
 
 
 class ConversationSpaceService:
@@ -41,7 +42,8 @@ class ConversationSpaceService:
         """
         Create a new conversation space with a secure invite token.
         
-        Also creates the underlying WebSocket session in backend/main.py.
+        The MVP 2 backend/main.py WebSocket session bridge is disabled by
+        default so MVP 1 can run cleanly from services/api alone.
         
         Returns: (conversation_space, raw_invite_token)
         """
@@ -67,17 +69,17 @@ class ConversationSpaceService:
         await self.db.commit()
         await self.db.refresh(space)
         
-        # Create the underlying WebSocket session in backend
-        try:
-            await self._create_backend_session(space.websocket_session_id)
-        except Exception as e:
-            logger.warning(f"Failed to create backend session: {e}")
-            # Continue anyway - session can be created on first connection
+        if ENABLE_MVP2_BACKEND_BRIDGE and space.websocket_session_id:
+            try:
+                await self._create_backend_session(space.websocket_session_id)
+            except Exception as e:
+                logger.warning(f"Failed to create MVP 2 backend session: {e}")
+                # Continue anyway - live sessions are outside MVP 1.
         
         return space, raw_token
     
     async def _create_backend_session(self, session_id: str) -> None:
-        """Create a session in backend/main.py via internal endpoint."""
+        """Create a future live-session record in backend/main.py."""
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 response = await client.post(

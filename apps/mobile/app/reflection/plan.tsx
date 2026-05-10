@@ -14,6 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getReflection, generatePlan, submitFeedback as apiSubmitFeedback, getFeedback as apiGetFeedback, updateFeedback as apiUpdateFeedback } from "../../src/api/reflections";
 import type { Reflection, GenerateResponse, ReflectionFeedback } from "../../src/types";
 import { GradientButton } from "../../src/components/GradientButton";
+import { AuthGate } from "../../src/auth/AuthGate";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 // ─── Score Option ─────────────────────────────────────────────────────────────
@@ -46,6 +48,7 @@ function ScoreOption({
 export default function PlanScreen() {
   const router = useRouter();
   const { reflectionId } = useLocalSearchParams<{ reflectionId: string }>();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +64,7 @@ export default function PlanScreen() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
-    if (!reflectionId) return;
+    if (!reflectionId || authLoading || !isAuthenticated) return;
     setError("");
     getReflection(reflectionId)
       .then((r) => {
@@ -88,7 +91,7 @@ export default function PlanScreen() {
       })
       .catch(() => setError("Could not load this reflection. Check the API connection and try again."))
       .finally(() => setLoading(false));
-  }, [reflectionId]);
+  }, [reflectionId, authLoading, isAuthenticated]);
 
   async function handleGenerate() {
     if (!reflectionId) return;
@@ -133,6 +136,14 @@ export default function PlanScreen() {
   }
 
   // ─── Render states ─────────────────────────────────────────────────────────
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <AuthGate message="Sign in to generate or view conversation plans.">
+        <View />
+      </AuthGate>
+    );
+  }
 
   if (loading) {
     return (

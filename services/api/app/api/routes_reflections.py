@@ -12,7 +12,7 @@ Endpoints:
 
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -32,6 +32,7 @@ from app.services import (
     FacilitationService,
     ExtractionService,
 )
+from app.services.auth_service import decode_token
 from app.services.safety_service import check_safety, build_crisis_response
 
 
@@ -42,7 +43,7 @@ router = APIRouter(prefix="/reflections", tags=["reflections"])
 
 # ─── Auth Dependency ───────────────────────────────────────────────────────────
 
-async def get_current_user(authorization: str = None) -> dict:
+async def get_current_user(authorization: str | None = Header(default=None)) -> dict | None:
     """
     Returns user payload. For MVP 1, always returns a dev user.
     In MVP 2, integrate Clerk or Supabase auth.
@@ -52,8 +53,11 @@ async def get_current_user(authorization: str = None) -> dict:
     if USE_AUTH:
         if not authorization or not authorization.startswith("Bearer "):
             return None
-        # TODO: Decode token based on AUTH_PROVIDER
-        return None
+        token = authorization.split("Bearer ", 1)[1]
+        payload = decode_token(token)
+        if not payload or payload.get("type") != "session":
+            return None
+        return payload
     
     # Dev mode: return a dev user
     return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}

@@ -18,11 +18,10 @@ export default function Home() {
 
       {/* Hero */}
       <section className="hero-section">
-        <div className="hero-orb" aria-hidden="true" />
         <div className="hero-content">
           <h1 className="hero-headline">Reflect before you react.</h1>
           <p className="hero-subtitle">
-            A calm space to prepare for the conversations that matter.
+            Feltabout helps you organize your thoughts, prepare for difficult conversations, and communicate with more clarity.
           </p>
         </div>
 
@@ -139,27 +138,6 @@ export default function Home() {
           position: relative;
         }
 
-        .hero-orb {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: clamp(280px, 50vw, 400px);
-          height: clamp(280px, 50vw, 400px);
-          border-radius: 50%;
-          background: var(--gradient-core);
-          filter: blur(80px);
-          opacity: 0.35;
-          animation: orb-breathe 9s ease-in-out infinite;
-          pointer-events: none;
-          z-index: -1;
-        }
-
-        @keyframes orb-breathe {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
-          50% { transform: translate(-50%, -52%) scale(1.04); opacity: 0.4; }
-        }
-
         .hero-content {
           margin-bottom: 2rem;
         }
@@ -168,7 +146,7 @@ export default function Home() {
           font-size: clamp(2rem, 6vw, 3.5rem);
           font-weight: 600;
           color: var(--text);
-          letter-spacing: -0.03em;
+          letter-spacing: 0;
           line-height: 1.1;
           margin-bottom: 1rem;
         }

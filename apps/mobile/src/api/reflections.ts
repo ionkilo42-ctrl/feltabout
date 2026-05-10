@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import type {
   Reflection,
   CreateReflectionRequest,
@@ -7,30 +6,25 @@ import type {
   ReflectionFeedback,
   CreateFeedbackRequest,
 } from "../types";
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  Constants.expoConfig?.extra?.apiUrl ??
-  (Constants.manifest?.extra as Record<string, string>)?.apiUrl ??
-  "http://localhost:8000";
+import { API_URL, apiHeaders, readError } from "./client";
 
 // ─── Reflections ──────────────────────────────────────────────────────────────
 
 export async function listReflections(): Promise<Reflection[]> {
   const resp = await fetch(`${API_URL}/reflections`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
   });
-  if (!resp.ok) throw new Error(`List failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `List failed: ${resp.status}`);
   return resp.json();
 }
 
 export async function getReflection(id: string): Promise<Reflection> {
   const resp = await fetch(`${API_URL}/reflections/${id}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
   });
-  if (!resp.ok) throw new Error(`Get failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Get failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -39,10 +33,10 @@ export async function createReflection(
 ): Promise<Reflection> {
   const resp = await fetch(`${API_URL}/reflections`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
     body: JSON.stringify(data),
   });
-  if (!resp.ok) throw new Error(`Create failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Create failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -52,19 +46,19 @@ export async function updateReflection(
 ): Promise<Reflection> {
   const resp = await fetch(`${API_URL}/reflections/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
     body: JSON.stringify(data),
   });
-  if (!resp.ok) throw new Error(`Update failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Update failed: ${resp.status}`);
   return resp.json();
 }
 
 export async function deleteReflection(id: string): Promise<void> {
   const resp = await fetch(`${API_URL}/reflections/${id}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
   });
-  if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Delete failed: ${resp.status}`);
 }
 
 export async function generatePlan(
@@ -72,9 +66,9 @@ export async function generatePlan(
 ): Promise<GenerateResponse> {
   const resp = await fetch(`${API_URL}/reflections/${reflectionId}/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
   });
-  if (!resp.ok) throw new Error(`Generate failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Generate failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -90,10 +84,10 @@ export async function submitFeedback(
 ): Promise<ReflectionFeedback> {
   const resp = await fetch(`${API_URL}/reflections/${reflectionId}/feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
     body: JSON.stringify(data),
   });
-  if (!resp.ok) throw new Error(`Submit feedback failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Submit feedback failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -102,9 +96,9 @@ export async function getFeedback(
 ): Promise<ReflectionFeedback> {
   const resp = await fetch(`${API_URL}/reflections/${reflectionId}/feedback`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
   });
-  if (!resp.ok) throw new Error(`Get feedback failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Get feedback failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -114,9 +108,9 @@ export async function updateFeedback(
 ): Promise<ReflectionFeedback> {
   const resp = await fetch(`${API_URL}/reflections/${reflectionId}/feedback`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: await apiHeaders(),
     body: JSON.stringify(data),
   });
-  if (!resp.ok) throw new Error(`Update feedback failed: ${resp.status}`);
+  if (!resp.ok) throw await readError(resp, `Update feedback failed: ${resp.status}`);
   return resp.json();
 }

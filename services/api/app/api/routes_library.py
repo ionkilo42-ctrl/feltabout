@@ -14,6 +14,7 @@ from app.models.reflection import Reflection
 from app.models.conversation_space import ConversationSpace
 from app.models.participant import Participant
 from app.api.routes_auth import require_user
+from app.services import ReflectionService
 
 router = APIRouter(prefix="/library", tags=["library"])
 
@@ -50,23 +51,12 @@ async def get_library(
 
     from sqlalchemy import select, or_, func
 
-    # Get reflections for this user
-    refl_stmt = (
-        select(
-            Reflection.id,
-            Reflection.title,
-            Reflection.status,
-            Reflection.created_at,
-            Reflection.situation,
-        )
-        .where(Reflection.user_id == user_id)
-    )
-    refl_result = await db.execute(refl_stmt)
-    reflections = refl_result.all()
+    # Get decrypted reflections for this user.
+    reflections = await ReflectionService.list_by_user(db, user_id)
 
     # Get conversation spaces where user is owner OR participant
     # First get participant records for this user
-    participant_stmt = select(Participant.space_id).where(Participant.user_id == user_id)
+    participant_stmt = select(Participant.conversation_space_id).where(Participant.user_id == user_id)
     participant_result = await db.execute(participant_stmt)
     participant_space_ids = [row[0] for row in participant_result.all()]
 
@@ -107,9 +97,9 @@ async def get_library(
 
     # Add reflections
     for r in reflections:
-        name = r.title if r.title else (
-            r.situation[:60] + "..." if r.situation and len(r.situation) > 60 else (r.situation or "Untitled reflection")
-        )
+        name = r.title if r.title else (r.situation or "Untitled reflection")
+        if len(name) > 60:
+            name = f"{name[:60]}..."
         items.append(LibraryItemResponse(
             type="reflection",
             id=r.id,
@@ -125,7 +115,7 @@ async def get_library(
     for s in spaces:
         # Count participants for this space
         count_result = await db.execute(
-            select(func.count(Participant.id)).where(Participant.space_id == s.id)
+            select(func.count(Participant.id)).where(Participant.conversation_space_id == s.id)
         )
         participant_count = count_result.scalar() or 0
 

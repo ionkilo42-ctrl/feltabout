@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# RelateFX — docker-compose for local development and staging
+# Feltabout — docker-compose for local MVP development
 # ─────────────────────────────────────────────────────────────────────────────
 # Usage:
-#   cp .env.template .env     # fill in your API keys
+#   cp services/api/.env.example services/api/.env
 #   docker compose up         # starts all services
 #   docker compose logs -f    # tail backend logs
 #
@@ -14,31 +14,31 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: relatefx
-      POSTGRES_USER: relatefx
+      POSTGRES_DB: feltabout
+      POSTGRES_USER: feltabout
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U relatefx"]
+      test: ["CMD-SHELL", "pg_isready -U feltabout -d feltabout"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  backend:
+  api:
     build:
       context: ./services/api
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - ./services/api/.env
     environment:
       # Override DATABASE_URL to point to the postgres service
-      DATABASE_URL: postgresql+asyncpg://relatefx:${POSTGRES_PASSWORD:-change-me-in-prod}@postgres:5432/relatefx
-      USE_POSTGRES: "true"
-      # Ports for LiveKit / Deepgram / ElevenLabs come from .env
+      DATABASE_URL: postgresql+asyncpg://feltabout:${POSTGRES_PASSWORD:-change-me-in-prod}@postgres:5432/feltabout
+      USE_AUTH: "true"
+      ENABLE_MVP2_BACKEND_BRIDGE: "false"
     ports:
       - "8000:8000"
     depends_on:
@@ -61,7 +61,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      - api
 
 volumes:
   postgres_data:

@@ -12,11 +12,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getReflection, getFeedback, updateFeedback, archiveReflection } from "../../src/api/reflections";
 import type { Reflection, ReflectionFeedback } from "../../src/types";
 import { GradientButton } from "../../src/components/GradientButton";
+import { AuthGate } from "../../src/auth/AuthGate";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 export default function ReflectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [feedback, setFeedback] = useState<ReflectionFeedback | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +29,7 @@ export default function ReflectionDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading || !isAuthenticated) return;
     setError("");
     Promise.all([getReflection(id), getFeedback(id).catch(() => null)])
       .then(([r, fb]) => {
@@ -39,7 +42,7 @@ export default function ReflectionDetailScreen() {
       })
       .catch(() => setError("Could not load this reflection."))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, authLoading, isAuthenticated]);
 
   async function handleSubmitFollowup() {
     if (!id || !followupScore) return;
@@ -66,6 +69,14 @@ export default function ReflectionDetailScreen() {
       case "archived": return "Archived";
       default: return status;
     }
+  }
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <AuthGate message="Sign in to open this saved reflection.">
+        <View />
+      </AuthGate>
+    );
   }
 
   if (loading) {

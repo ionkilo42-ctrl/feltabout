@@ -9,7 +9,7 @@ Endpoints:
 """
 
 import os
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -38,6 +38,17 @@ class VerifyResponse(BaseModel):
     name: str
 
 
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    display_name: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class UpdateNameRequest(BaseModel):
     name: str
 
@@ -46,6 +57,11 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserResponse
 
 
 class MagicLinkResponse(BaseModel):
@@ -60,7 +76,7 @@ async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
 
 
 async def get_current_user(
-    authorization: str = None,
+    authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
@@ -69,16 +85,18 @@ async def get_current_user(
     """
     if not authorization:
         return None
-    
+
     if not authorization.startswith("Bearer "):
         return None
-    
+
     token = authorization.split("Bearer ")[1]
     payload = decode_token(token)
-    
+
     if not payload:
         return None
-    
+    if payload.get("type") != "session":
+        return None
+
     return payload
 
 
@@ -87,14 +105,14 @@ async def require_user(
 ) -> dict:
     """Require authenticated user, raise 401 if not (dev mode returns dev user when auth disabled)."""
     USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
-    
+
     if USE_AUTH and not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     # Dev mode: return dev user when auth is disabled
     if not current_user:
         return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}
-    
+
     return current_user
 
 
@@ -125,21 +143,21 @@ async def verify_magic_link(
 ):
     """
     Verify magic link token and return session credentials.
-    
+
     URL: /auth/verify?token=<magic_link_token>
     """
     auth = AuthService(db)
     user = await auth.verify_magic_link(token)
-    
+
     if not user:
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired magic link token",
         )
-    
+
     # Create session token
     session_token = create_session_token(user.id, user.email, user.display_name)
-    
+
     return VerifyResponse(
         token=session_token,
         user_id=user.id,
@@ -157,10 +175,10 @@ async def update_name(
     """Update the current user's display name."""
     auth = AuthService(db)
     user = await auth.update_user_name(current_user["sub"], data.name)
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -176,12 +194,75 @@ async def get_me(
     """Get current user info."""
     auth = AuthService(db)
     user = await auth.get_user_by_id(current_user["sub"])
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     return UserResponse(
         id=user.id,
         email=user.email,
         name=user.display_name,
+    )
+
+
+@router.post("/register", response_model=AuthResponse)
+async def register(
+    data: RegisterRequest,
+    auth: AuthService = Depends(get_auth_service),
+):
+    """
+    Register a new user with email and password.
+
+    Creates a secure account and returns a session token.
+    """
+    user, error = await auth.register_user(
+        email=data.email,
+        password=data.password,
+        display_name=data.display_name,
+    )
+
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    # Create session token
+    session_token = create_session_token(user.id, user.email, user.display_name)
+
+    return AuthResponse(
+        token=session_token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.display_name,
+        ),
+    )
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(
+    data: LoginRequest,
+    auth: AuthService = Depends(get_auth_service),
+):
+    """
+    Sign in with email and password.
+
+    Returns a session token on successful authentication.
+    """
+    user, error = await auth.login_user(
+        email=data.email,
+        password=data.password,
+    )
+
+    if error:
+        raise HTTPException(status_code=401, detail=error)
+
+    # Create session token
+    session_token = create_session_token(user.id, user.email, user.display_name)
+
+    return AuthResponse(
+        token=session_token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.display_name,
+        ),
     )

@@ -16,8 +16,8 @@ Do not describe feltabout as an AI therapist or mental health tool.
 - ✅ Emotional clarity
 - ✅ Conflict-resolution support
 - ✅ Difficult conversation guidance
-- ✅ Mediated sessions with AI facilitation
 - ✅ Shared conversation support for connected pairs
+- Future: mediated sessions with AI facilitation (MVP 2/future)
 
 - ❌ Therapy or mental health treatment
 - ❌ Diagnosis or clinical assessment
@@ -36,14 +36,14 @@ feltabout/
 │   └── api/             # FastAPI — REST API + AI generation
 ├── packages/
 │   └── shared/          # Shared TypeScript types
-├── backend/             # FastAPI — facilitation, voice, mediated sessions
-├── frontend/            # Next.js — mediated session web app
+├── frontend/            # Next.js — MVP web app
+├── backend/             # Older voice/WebSocket system for MVP 2 reference
 ├── docs/                # Project docs
 ├── AGENTS.md            # This file
 └── README.md            # Setup instructions
 ```
 
-All paths are active. `backend/` and `frontend/` contain the mediated session logic, AI facilitation, and voice integration.
+MVP 1 uses `services/api`, `frontend`, `apps/mobile`, and `packages/shared`. `backend/` contains older voice/WebSocket infrastructure and should not be the primary MVP runtime unless MVP 2 work is explicitly resumed.
 
 ---
 
@@ -74,10 +74,10 @@ All paths are active. `backend/` and `frontend/` contain the mediated session lo
 - Never expose unsafe content in normal AI responses
 
 ### Auth
-- MVP 1: dev user (no auth)
-- Scaffold for Clerk or Supabase in MVP 2
-- `get_current_user()` returns dev user or decoded token
-- `require_user()` dependency protects all `/reflections` routes
+- `USE_AUTH=false` returns the local dev user for mobile/local testing.
+- `USE_AUTH=true` requires a bearer session token from password auth or magic-link auth.
+- `get_current_user()` reads the `Authorization` header, not query params.
+- `require_user()` protects `/reflections`, `/library`, `/patterns`, and `/conversation-spaces` owner routes.
 
 ### API Design
 - RESTful, JSON-only

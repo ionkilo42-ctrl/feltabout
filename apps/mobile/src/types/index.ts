@@ -6,8 +6,25 @@ export type ReflectionStatus = "draft" | "completed" | "archived";
 export interface User {
   id: string;
   email: string;
+  name?: string;
+  display_name?: string;
+  created_at?: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: User;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
   display_name: string;
-  created_at: string;
 }
 
 export interface Reflection {

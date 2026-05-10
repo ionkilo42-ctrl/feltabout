@@ -12,10 +12,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { listReflections, deleteReflection, archiveReflection } from "../../src/api/reflections";
 import type { Reflection } from "../../src/types";
+import { AuthGate } from "../../src/auth/AuthGate";
+import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
 export default function ReflectionsScreen() {
   const router = useRouter();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +39,9 @@ export default function ReflectionsScreen() {
   }
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
     load();
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   async function handleDelete(id: string) {
     if (confirmDeleteId !== id) {
@@ -135,7 +139,8 @@ export default function ReflectionsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <AuthGate message="Sign in to view your saved reflection library.">
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Your history</Text>
         <Text style={styles.screenTitle}>Library</Text>
@@ -187,7 +192,8 @@ export default function ReflectionsScreen() {
           refreshing={loading}
         />
       ) : null}
-    </SafeAreaView>
+      </SafeAreaView>
+    </AuthGate>
   );
 }
 

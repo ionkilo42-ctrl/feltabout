@@ -15,6 +15,7 @@ class User(Base):
     id = Column(String(36), primary_key=True, default=lambda: uuid.uuid4().hex[:16])
     email = Column(String(256), unique=True, nullable=False, index=True)
     display_name = Column(String(128), nullable=False)
+    password_hash = Column(String(256), nullable=True)  # null = magic link only, set = password auth
     created_at = Column(DateTime, default=datetime.utcnow)
 
     reflections = relationship("Reflection", back_populates="user", cascade="all, delete-orphan")

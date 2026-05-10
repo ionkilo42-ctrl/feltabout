@@ -1,10 +1,11 @@
 'use client'
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/store/sessionStore'
 import { apiUrl } from '@/lib/api'
 
-export default function VerifyPage() {
+function VerifyStatus() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const router = useRouter()
@@ -96,5 +97,13 @@ export default function VerifyPage() {
         )}
       </section>
     </main>
+  )
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<main className="auth-shell" />}>
+      <VerifyStatus />
+    </Suspense>
   )
 }
