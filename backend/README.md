@@ -1,6 +1,8 @@
 # backend/
 
-This directory contains experimental infrastructure for future feltabout mediated-session features.
+This directory contains legacy/future infrastructure for feltabout mediated-session features.
+It is preserved as technical history and as a possible MVP 2 starting point, but it is not
+the active local API for MVP 1.
 
 ## Status
 

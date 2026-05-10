@@ -1,16 +1,15 @@
-const DEFAULT_API_URL = 'http://localhost:8000'
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '')
 }
 
-export const API_BASE_URL = trimTrailingSlash(
-  process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    DEFAULT_API_URL
-)
+export const API_BASE_URL = trimTrailingSlash(DEFAULT_API_URL)
 
 export function apiUrl(path: string) {
+  // When NEXT_PUBLIC_API_URL is empty (web proxy mode), use relative paths.
+  // When set (mobile/explicit absolute), use absolute URLs.
+  if (!API_BASE_URL) return path.startsWith('/') ? path : `/${path}`
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
 }
 
