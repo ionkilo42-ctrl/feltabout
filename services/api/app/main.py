@@ -13,13 +13,17 @@ All AI generation passes through Safety Engine first.
 """
 
 import os
+import json
+import logging
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +103,78 @@ async def root():
         "docs": "/docs",
         "health": "/health",
     }
+
+
+# ─── WebSocket Stub ─────────────────────────────────────────────────────────────
+# MVP placeholder for voice-mediated sessions (MVP 2 feature).
+# This stub accepts connections and provides a friendly fallback message.
+# In MVP 2, this will be replaced with the full voice infrastructure from backend/main.py.
+
+@app.websocket("/ws/{session_id}")
+async def websocket_stub(ws: WebSocket, session_id: str):
+    """
+    WebSocket placeholder for conversation sessions.
+    
+    In MVP 1, this provides a graceful fallback since live mediated sessions
+    are not yet implemented. The frontend receives a friendly system message
+    explaining the current state.
+    
+    In MVP 2, this will be replaced with the full WebSocket + voice integration
+    from backend/main.py (LiveKit, STT, TTS, MiniMax LLM).
+    """
+    await ws.accept()
+    
+    # Send welcome/placeholder message
+    welcome_message = {
+        "type": "system",
+        "content": (
+            "This conversation space is ready, but live mediated sessions are not "
+            "enabled in this local MVP build yet. Your reflection and conversation "
+            "preparation data has been saved. Full voice-facilitated sessions will "
+            "be available in MVP 2."
+        ),
+        "session_id": session_id,
+        "status": "placeholder",
+    }
+    await ws.send_json(welcome_message)
+    
+    logger.info(f"[WS Stub] Connection accepted for session: {session_id}")
+    
+    try:
+        while True:
+            # Echo/acknowledge incoming messages
+            data = await ws.receive_text()
+            
+            try:
+                msg = json.loads(data)
+                msg_type = msg.get("type", "unknown")
+                
+                # Acknowledge the message
+                ack = {
+                    "type": "ack",
+                    "original_type": msg_type,
+                    "content": f"Received your message ({msg_type}). Live session features are coming in MVP 2.",
+                    "session_id": session_id,
+                }
+                await ws.send_json(ack)
+                
+            except json.JSONDecodeError:
+                # Handle non-JSON input gracefully
+                ack = {
+                    "type": "ack",
+                    "content": "Message received. Live session features are coming in MVP 2.",
+                    "session_id": session_id,
+                }
+                await ws.send_json(ack)
+                
+    except WebSocketDisconnect:
+        logger.info(f"[WS Stub] Session {session_id} disconnected gracefully")
+    except Exception as e:
+        logger.warning(f"[WS Stub] Session {session_id} error: {e}")
+        try:
+            await ws.close(code=1011, reason="MVP 1 placeholder — MVP 2 voice sessions coming soon")
+        except Exception:
+            pass
 
 
 # ─── Run ──────────────────────────────────────────────────────────────────────
