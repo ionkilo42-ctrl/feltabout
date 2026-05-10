@@ -14,12 +14,11 @@ import logging
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from app.models.conversation_space import ConversationSpace
 from app.models.participant import Participant
-from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -117,18 +116,20 @@ class ConversationSpaceService:
             return space
         
         # Check if user is a participant
-        participant_result = await self.db.execute(
-            select(Participant).where(
-                and_(
-                    Participant.conversation_space_id == space_id,
-                    Participant.user_id == user_id
+        if user_id:
+            participant_result = await self.db.execute(
+                select(Participant).where(
+                    and_(
+                        Participant.conversation_space_id == space_id,
+                        Participant.user_id == user_id
+                    )
                 )
             )
-        )
-        if participant_result.scalar_one_or_none():
-            return space
+            if participant_result.scalar_one_or_none():
+                return space
         
-        return None
+        # No user_id = guest access; return space if it exists (caller handles further validation)
+        return space
     
     async def list_user_spaces(self, user_id: str) -> list[ConversationSpace]:
         """List all conversation spaces the user owns or participates in."""
