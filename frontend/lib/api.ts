@@ -7,9 +7,12 @@ function trimTrailingSlash(value: string) {
 export const API_BASE_URL = trimTrailingSlash(DEFAULT_API_URL)
 
 export function apiUrl(path: string) {
-  // When NEXT_PUBLIC_API_URL is empty (web proxy mode), use relative paths.
-  // When set (mobile/explicit absolute), use absolute URLs.
-  if (!API_BASE_URL) return path.startsWith('/') ? path : `/${path}`
+  // Proxy mode (web/ngrok): always prefix /api since Next.js rewrite maps /api/* → backend
+  if (!API_BASE_URL) {
+    const normalized = path.startsWith('/') ? path : `/${path}`
+    return `/api${normalized}`
+  }
+  // Absolute URL mode (mobile/explicit env): use full URL
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
 }
 
