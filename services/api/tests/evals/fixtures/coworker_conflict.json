@@ -1,0 +1,25 @@
+{
+  "name": "Coworker conflict",
+  "category": "facilitation_tone",
+  "description": "User is dealing with a passive-aggressive coworker",
+  "reflection": {
+    "situation": "My coworker keeps taking credit for my work and undermining me in meetings. Yesterday they said my idea was theirs.",
+    "feelings": "Frustrated, angry, undervalued, confused",
+    "interpretation": "They're deliberately sabotaging me to look good",
+    "needs": "Recognition for my work, respect, a clear working relationship",
+    "fears": "That this will affect my performance review or career growth",
+    "desired_outcome": "Clear attribution and a respectful working dynamic",
+    "message_draft": "You've been taking credit for my ideas and it's not okay"
+  },
+  "expected_tone": {
+    "emotional_summary": "Calm, specific. Grounds in observations rather than character attacks.",
+    "reframe": "Describes behavior without labeling the person.",
+    "avoid_saying": "No accusations, no 'you always' language, no predicting intent"
+  },
+  "prohibited_phrases": [
+    "They're gaslighting you",
+    "codependent",
+    "completely ruined",
+    "soul-destroying"
+  ]
+}

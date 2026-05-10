@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "feltabout",
+    "slug": "feltabout",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F5F2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.feltabout.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F5F2"
+      },
+      "package": "com.feltabout.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "feltabout",
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:8000",
+      "eas": {
+        "projectId": "feltabout-mvp"
+      }
+    }
+  }
+}

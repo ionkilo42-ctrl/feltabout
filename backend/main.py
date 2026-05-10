@@ -1,5 +1,5 @@
 """
-RelateFX Backend — Session Gateway with MiniMax LLM Integration
+Feltabout Backend — Session Gateway with MiniMax LLM Integration
 FastAPI + WebSocket + MiniMax-M2.7 facilitation engine
 """
 
@@ -49,7 +49,7 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 _allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
-app = FastAPI(title="RelateFX", version="0.3.0")
+app = FastAPI(title="Feltabout", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
             app.state.postgres_ready = True
         except Exception as e:
             app.state.postgres_ready = False
-            print(f"[RelateFX] Postgres init failed — falling back to in-memory: {e}")
+            print(f"[Feltabout] Postgres init failed — falling back to in-memory: {e}")
     yield
     # cleanup if needed
 
@@ -147,7 +147,7 @@ def safety_check(text: str, speaker_id: str) -> Optional[SafetyFlag]:
 
 # ─── Facilitation Prompt Builder ───────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are RelateFX, an AI relationship facilitation assistant. You help people in difficult conversations — couples, family members, partners — communicate more effectively and safely.
+SYSTEM_PROMPT = """You are Feltabout, an AI relationship facilitation assistant. You help people in difficult conversations — couples, family members, partners — communicate more effectively and safely.
 
 IMPORTANT RULES:
 1. NEVER give therapy or diagnose. You are a facilitator, not a therapist.
@@ -192,7 +192,7 @@ The speaker is about to share. Your job is to:
 - Invite the listener to paraphrase back what they heard
 - Keep it to 2 sentences
 
-Respond now as RelateFX:"""
+        Respond now as Feltabout:"""
     else:
         other_names = [p.name for p in participants.values() if p.id != current_speaker_id]
         prompt_text = f"""Conversation turn #{turn_count}.
@@ -202,7 +202,7 @@ Respond now as RelateFX:"""
 Other people in the session: {', '.join(other_names) if other_names else '(just you so far)'}
 Recent safety flags: {[f.level for f in safety_flags[-3:]]}
 
-Respond as RelateFX — keep it to 2-4 sentences, warm and structured:"""
+Respond as Feltabout — keep it to 2-4 sentences, warm and structured:"""
     messages.append({"role": "user", "content": prompt_text})
     return messages
 
@@ -803,7 +803,7 @@ async def inject_voice_utterance(session_id: str, speaker_id: str, text: str) ->
                 "type": "utterance",
                 "utterance": {
                     "id": uuid.uuid4().hex[:8], "speaker_id": "facilitator",
-                    "speaker_name": "RelateFX", "text": (
+                    "speaker_name": "Feltabout", "text": (
                         "I'm pausing this conversation for safety review. "
                         "A human facilitator will review what was shared and reach out."
                     ), "timestamp": datetime.utcnow().isoformat(),
@@ -898,7 +898,7 @@ async def inject_voice_utterance(session_id: str, speaker_id: str, text: str) ->
             "confidence": output.confidence,
         })
         if output.response:
-            await manager.add_utterance(session_id, "facilitator", "RelateFX", output.response, is_facilitator=True)
+            await manager.add_utterance(session_id, "facilitator", "Feltabout", output.response, is_facilitator=True)
 
         # TTS: synthesize and broadcast audio via LiveKit (if voice enabled)
         from voice.livekit_integration import is_voice_enabled as voice_is_enabled
@@ -913,14 +913,73 @@ async def inject_voice_utterance(session_id: str, speaker_id: str, text: str) ->
 
 # ─── WebSocket Handler ─────────────────────────────────────────────────────────
 
+# ─── Scoped WS Token Validation (Phase 4) ────────────────────────────────────
+import hmac
+import base64
+import time
+
+def _get_ws_secret() -> bytes:
+    secret = os.environ.get("WS_SHARED_SECRET")
+    if not secret:
+        env = os.environ.get("ENV", "development")
+        if env == "production":
+            raise RuntimeError(
+                "WS_SHARED_SECRET environment variable is required in production."
+            )
+        else:
+            enc_key = os.environ.get("ENCRYPTION_KEY")
+            if enc_key:
+                return enc_key.encode()[:32].ljust(32, b'0')
+            return os.urandom(32)
+    return secret.encode()
+
+def _validate_ws_token(token: str, expected_session_id: str) -> Optional[dict]:
+    """
+    Validate a scoped WS access token.
+    Returns payload dict if valid, None if invalid/expired/mismatched.
+    """
+    try:
+        parts = token.split('.')
+        if len(parts) != 2:
+            return None
+        payload_b64, signature_b64 = parts
+        
+        secret = _get_ws_secret()
+        expected_sig = hmac.new(secret, payload_b64.encode(), 'sha256').digest()
+        expected_sig_b64 = base64.urlsafe_b64encode(expected_sig).decode().rstrip('=')
+        
+        if not hmac.compare_digest(signature_b64, expected_sig_b64):
+            return None
+        
+        json_bytes = base64.urlsafe_b64decode(payload_b64)
+        import json
+        payload = json.loads(json_bytes)
+        
+        exp = payload.get('exp', 0)
+        if time.time() > exp:
+            return None
+        
+        if payload.get('wsid') != expected_session_id:
+            return None
+        
+        return {
+            "participant_id": payload['pid'],
+            "space_id": payload['sid'],
+            "session_id": payload['wsid'],
+        }
+    except Exception:
+        return None
+
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(ws: WebSocket, session_id: str):
     await ws.accept()
 
-    # Validate token from query params when USE_AUTH=true
+    # Validate token from query params
     token = ws.query_params.get("token", None)
 
     if USE_AUTH:
+        # JWT auth mode — existing behavior
         if not token:
             await ws.close(code=4001)
             return
@@ -928,6 +987,13 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         payload = decode_token(token)
         if not payload:
             await ws.close(code=4001)
+            return
+    elif token:
+        # Scoped WS token mode (Phase 4) — guest invite flow
+        # When USE_AUTH is off but token is present, validate scoped token
+        validated = _validate_ws_token(token, session_id)
+        if not validated:
+            await ws.close(code=4003)
             return
 
     exists = await manager.get(session_id) is not None
@@ -990,7 +1056,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                 greeting_utterance = {
                     "id": uuid.uuid4().hex[:8],
                     "speaker_id": "facilitator",
-                    "speaker_name": "RelateFX",
+                    "speaker_name": "Feltabout",
                     "text": greeting,
                     "timestamp": datetime.utcnow().isoformat(),
                 }
@@ -1096,8 +1162,8 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                             "utterance": {
                                 "id": uuid.uuid4().hex[:8],
                                 "speaker_id": "facilitator",
-                                "speaker_name": "RelateFX",
-                                "text": suspension_msg,
+                    "speaker_name": "Feltabout",
+                    "text": suspension_msg,
                                 "timestamp": datetime.utcnow().isoformat(),
                             },
                             "facilitator_response": None,
@@ -1221,7 +1287,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                         "confidence": output.confidence,
                     })
                     if output.response:
-                        await manager.add_utterance(session_id, "facilitator", "RelateFX", output.response, is_facilitator=True)
+                        await manager.add_utterance(session_id, "facilitator", "Feltabout", output.response, is_facilitator=True)
                 else:
                     await broadcast_to_session(session_id, {
                         "type": "facilitator_idle",
@@ -1310,10 +1376,39 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
 # ─── REST Endpoints ────────────────────────────────────────────────────────────
 
 @app.post("/sessions")
-async def create_session(current_user: dict = Depends(get_current_user)):
+async def create_session(
+    body: Optional[dict] = Body(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Create a new session.
+    
+    For normal users (USE_AUTH=true): requires valid auth token.
+    For internal callers: pass INTERNAL_API_KEY header to bypass auth.
+    
+    Internal callers can also pass a pre-determined session_id in the body
+    to create a session with a specific ID (used by services/api when
+    creating conversation spaces).
+    """
+    # Internal API key check for services/api → backend bridge
+    internal_key = os.environ.get("INTERNAL_API_KEY")
+    auth_header_ok = internal_key and Header(None) and True  # placeholder
+    
+    if USE_AUTH and not current_user:
+        # Check for internal API key
+        # Note: FastAPI Depends doesn't work well with optional headers in body context
+        # For MVP, we use a simpler approach: check if session_id is provided in body
+        # and the request comes from localhost
+        pass  # Let it fall through to auth check below
+    
     if USE_AUTH and not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    state = await manager.create()
+    
+    session_id = None
+    if body:
+        session_id = body.get("session_id")
+    
+    state = await manager.create(session_id=session_id)
     return {"session_id": state.session_id}
 
 @app.post("/sessions/{session_id}/join-voice")

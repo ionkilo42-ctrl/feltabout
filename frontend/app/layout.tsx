@@ -1,10 +1,17 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'RelateFX',
-  description: 'AI relationship facilitation platform',
+  title: 'Feltabout',
+  description: 'AI relationship facilitation for meaningful moments',
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-64.png', type: 'image/png', sizes: '64x64' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
 }
 

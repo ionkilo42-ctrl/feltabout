@@ -1,4 +1,4 @@
-# RelateFX Frontend - production Next.js image
+# Feltabout Frontend - production Next.js image
 FROM node:20-alpine AS deps
 
 WORKDIR /app

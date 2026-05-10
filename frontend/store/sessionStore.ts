@@ -1,5 +1,5 @@
 /**
- * RelateFX — Session state store (Zustand)
+ * Feltabout — Session state store (Zustand)
  * Replaces the fragile myIdRef / otherRef / nameRef pattern.
  * All cross-component session state lives here.
  */
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthStore>()(
       logout: () => set({ token: '', userId: '', userName: '' }),
     }),
     {
-      name: 'relatefx-auth',
+      name: 'feltabout-auth',
       partialize: (state) => ({ token: state.token, userId: state.userId, userName: state.userName }),
     }
   )

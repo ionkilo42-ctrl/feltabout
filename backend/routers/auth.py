@@ -1,6 +1,8 @@
 """
 RelateFX — Auth endpoints: signup, login, me
 """
+import os
+import secrets
 import uuid
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
@@ -24,6 +26,11 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class AdminLoginRequest(BaseModel):
     email: EmailStr
     password: str
 
@@ -53,6 +60,29 @@ async def signup(req: SignupRequest):
         return TokenResponse(token=token, user_id=user.id, name=user.name)
 
 
+@router.post("/admin-login", response_model=TokenResponse)
+async def admin_login(req: AdminLoginRequest):
+    admin_email = os.environ.get("ADMIN_EMAIL") or os.environ.get("ADMIN_USERNAME")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    admin_name = os.environ.get("ADMIN_NAME", "Admin")
+
+    if not admin_email or not admin_password:
+        raise HTTPException(status_code=503, detail="Admin login is not configured")
+
+    email_matches = secrets.compare_digest(req.email.lower(), admin_email.lower())
+    password_matches = secrets.compare_digest(req.password, admin_password)
+    if not email_matches or not password_matches:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_access_token(
+        user_id="admin",
+        email=admin_email,
+        name=admin_name,
+        role="admin",
+    )
+    return TokenResponse(token=token, user_id="admin", name=admin_name)
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
     async with async_session() as db:
@@ -72,6 +102,13 @@ async def get_me(authorization: str = Header(None)):
     payload = decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if payload.get("role") == "admin":
+        return {
+            "user_id": payload.get("sub"),
+            "email": payload.get("email"),
+            "name": payload.get("name", "Admin"),
+            "role": "admin",
+        }
     user_id = payload.get("sub")
     async with async_session() as db:
         result = await db.execute(select(User).where(User.id == user_id))

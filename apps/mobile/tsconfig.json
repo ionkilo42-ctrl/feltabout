@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-native",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "lib": [
+      "ESNext"
+    ],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@feltabout/shared": [
+        "../../packages/shared/src"
+      ]
+    }
+  },
+  "include": [
+    "**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
+  "extends": "expo/tsconfig.base"
+}

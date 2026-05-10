@@ -1,7 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="16" fill="#0F1721"/>
-  <path d="M18 22C18 16.477 22.477 12 28 12H46V30C46 35.523 41.523 40 36 40H34V52L25.5 40H28C22.477 40 18 35.523 18 30V22Z" fill="#4FD1C5"/>
-  <path d="M20 28H44" stroke="#071313" stroke-width="4" stroke-linecap="round"/>
-  <path d="M20 36H34" stroke="#071313" stroke-width="4" stroke-linecap="round"/>
-  <path d="M31 12C24.925 12 20 16.925 20 23V26" stroke="#D8F8F5" stroke-width="3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="feltabout-ring" x1="10" y1="12" x2="54" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00C2FF" />
+      <stop offset="0.34" stop-color="#33D6C8" />
+      <stop offset="0.7" stop-color="#FF6B6B" />
+      <stop offset="1" stop-color="#FFB547" />
+    </linearGradient>
+    <linearGradient id="feltabout-heart" x1="24" y1="20" x2="42" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF7C73" />
+      <stop offset="1" stop-color="#FF8A1F" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M32 8c-10.493 0-19 8.507-19 19 0 4.355 1.467 8.366 3.935 11.566L14 56l16.227-7.079A18.94 18.94 0 0 0 32 49c10.493 0 19-8.507 19-19S42.493 8 32 8Z"
+    fill="url(#feltabout-ring)"
+  />
+  <path
+    d="M31.725 22.79c2.214-4.185 8.212-4.411 10.806-.536 1.984 2.965 1.02 7.004-1.32 9.596-1.663 1.842-4.103 3.436-7.687 5.807-.819.542-1.747 1.156-2.79 1.854-.284-.19-.56-.373-.829-.551-4.004-2.652-6.73-4.458-8.568-6.505-2.337-2.603-3.284-6.65-1.271-9.616 2.615-3.852 8.627-3.587 10.83.547l.415.778.414-.774Z"
+    fill="url(#feltabout-heart)"
+  />
 </svg>

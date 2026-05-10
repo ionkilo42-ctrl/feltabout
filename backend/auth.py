@@ -21,9 +21,18 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(
+    user_id: str,
+    email: str,
+    name: str | None = None,
+    role: str | None = None,
+) -> str:
     expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRE_HOURS)
     payload = {"sub": user_id, "email": email, "exp": expire}
+    if name:
+        payload["name"] = name
+    if role:
+        payload["role"] = role
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 

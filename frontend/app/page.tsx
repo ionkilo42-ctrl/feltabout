@@ -1,760 +1,342 @@
-'use client'
+"use client"
 
-import { useState, useEffect, useRef } from 'react'
-import { useSessionStore } from '../store/sessionStore'
-import { apiUrl, wsUrl } from '../lib/api'
-
-interface Participant {
-  id: string
-  name: string
-  role: string
-  emotion: string
-}
-
-interface Utterance {
-  id: string
-  speaker_id: string
-  speaker_name: string
-  text: string
-  timestamp: string
-  client_id?: string
-}
-
-interface SafetyFlag {
-  level: string
-  reason: string
-  triggered_by: string
-}
-
-interface Message {
-  id: string
-  speaker: string
-  text: string
-  isFacilitator?: boolean
-  timestamp: string
-  safetyFlag?: SafetyFlag
-  clientId?: string
-  pending?: boolean
-  deliveryError?: boolean
-}
+import Link from 'next/link'
 
 export default function Home() {
-  const [sessionId, setSessionId] = useState('')
-  const [name, setName] = useState('')
-  const [joined, setJoined] = useState(false)
-  const [myId, setMyId] = useState('')
-  const [otherParticipant, setOtherParticipant] = useState<Participant | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [connected, setConnected] = useState(false)
-  const [status, setStatus] = useState('')
-  const [wsReady, setWsReady] = useState(false)
-  const [isThinking, setIsThinking] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [streamingText, setStreamingText] = useState<string>('')
-  const [streamingIndex, setStreamingIndex] = useState<number | null>(null)
-  const [currentMode, setCurrentMode] = useState<string>('facilitation')
-  const [debrief, setDebrief] = useState<{
-    text: string
-    topics: string[]
-    emotional_arc: string
-    unresolved_items: string[]
-    recommendations: string
-    safety_flags: SafetyFlag[]
-  } | null>(null)
-  const [debriefLoading, setDebriefLoading] = useState(false)
-  const [escalated, setEscalated] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [historySessions, setHistorySessions] = useState<{
-    session_id: string
-    mode: string
-    created_at: string
-    participant_count: number
-  }[]>([])
-  const [playbackSession, setPlaybackSession] = useState<string | null>(null)
-  const [playbackMessages, setPlaybackMessages] = useState<Message[]>([])
-  const [playbackLoading, setPlaybackLoading] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const clientIdRef = useRef<() => string>(() => Math.random().toString(36).slice(2))
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const thinkingTimeoutRef = useRef<number | null>(null)
-  const nameRef = useRef('')
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  useEffect(() => { scrollToBottom() }, [messages])
-  useEffect(() => { nameRef.current = name }, [name])
-
-  const connect = (sid: string, participantName: string) => {
-    nameRef.current = participantName
-    useSessionStore.getState().clearSession()
-    const ws = new WebSocket(wsUrl(`/ws/${sid}`))
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      setConnected(true)
-      ws.send(JSON.stringify({ type: 'join', name: participantName }))
-    }
-
-    ws.onmessage = (event) => {
-      let data
-      try {
-        data = JSON.parse(event.data)
-      } catch {
-        console.error('Non-JSON message received from backend:', event.data)
-        return
-      }
-
-      if (data.type === 'session_created') {
-        setSessionId(data.session_id)
-      }
-
-      if (data.type === 'participant_joined') {
-        const p = data.participant
-        const store = useSessionStore.getState()
-        if (!store.myId) {
-          setMyId(p.id)
-          store.setMyId(p.id)
-          setStatus(`Joined as ${p.name}`)
-          setJoined(true)
-        } else if (p.id !== store.myId) {
-          const otherP = { id: p.id, name: p.name, role: p.role, emotion: p.emotion }
-          setOtherParticipant(otherP)
-          store.setOther(otherP)
-          setStatus(`${p.name} joined`)
-        }
-        setWsReady(true)
-      }
-
-      if (data.type === 'utterance') {
-        const utt: Utterance = data.utterance
-
-        if (utt.speaker_id === 'facilitator') {
-          setMessages(prev => [
-            ...prev,
-            {
-              id: utt.id,
-              speaker: utt.speaker_name || 'RelateFX',
-              text: utt.text,
-              isFacilitator: true,
-              timestamp: utt.timestamp,
-            }
-          ])
-          return
-        }
-
-        const store = useSessionStore.getState()
-        const isMe = utt.speaker_id === store.myId
-        const speakerName = isMe
-          ? nameRef.current
-          : (store.otherParticipant?.name || utt.speaker_name || 'Other')
-        const incomingClientId = data.client_id || utt.client_id
-
-        setMessages(prev => {
-          if (isMe && incomingClientId) {
-            const pendingIndex = prev.findIndex(msg => msg.clientId === incomingClientId)
-            if (pendingIndex !== -1) {
-              return prev.map((msg, index) =>
-                index === pendingIndex
-                  ? {
-                      ...msg,
-                      id: utt.id,
-                      speaker: speakerName,
-                      text: utt.text,
-                      timestamp: utt.timestamp,
-                      pending: false,
-                    }
-                  : msg
-              )
-            }
-          }
-
-          return [
-            ...prev,
-            {
-              id: utt.id,
-              speaker: speakerName,
-              text: utt.text,
-              timestamp: utt.timestamp,
-            }
-          ]
-        })
-
-        if (data.facilitator_response) {
-          clearThinkingTimeout()
-          setIsThinking(false)
-          setErrorMessage(null)
-          setMessages(prev => [
-            ...prev,
-            {
-              id: utt.id + '-fx',
-              speaker: 'RelateFX',
-              text: data.facilitator_response,
-              isFacilitator: true,
-              timestamp: utt.timestamp,
-              safetyFlag: data.safety_flags?.[data.safety_flags.length - 1],
-            }
-          ])
-        }
-      }
-
-      if (data.type === 'facilitator_token') {
-        clearThinkingTimeout()
-        setIsThinking(false)
-        setErrorMessage(null)
-
-        const incomingIndex = data.index
-        if (streamingIndex !== incomingIndex) {
-          setStreamingIndex(incomingIndex)
-          setStreamingText(data.token)
-        } else {
-          setStreamingText(prev => prev + data.token)
-        }
-
-        if (thinkingTimeoutRef.current) {
-          clearTimeout(thinkingTimeoutRef.current)
-        }
-        thinkingTimeoutRef.current = window.setTimeout(() => {
-          setIsThinking(false)
-          setStreamingText('')
-          setStreamingIndex(null)
-          setErrorMessage("Response streaming stalled. The backend may still finish; you can wait or try again.")
-        }, 45000)
-      }
-
-      if (data.type === 'facilitator_complete') {
-        clearThinkingTimeout()
-        if (thinkingTimeoutRef.current) {
-          clearTimeout(thinkingTimeoutRef.current)
-          thinkingTimeoutRef.current = null
-        }
-        setIsThinking(false)
-        setErrorMessage(null)
-        setStreamingText('')
-        setStreamingIndex(null)
-        setMessages(prev => [
-          ...prev,
-          {
-            id: 'fx-' + data.index,
-            speaker: 'RelateFX',
-            text: data.full_text,
-            isFacilitator: true,
-            timestamp: new Date().toISOString(),
-          }
-        ])
-      }
-
-      if (data.type === 'facilitator_idle') {
-        clearThinkingTimeout()
-        setIsThinking(false)
-        setStreamingText('')
-        setStreamingIndex(null)
-        setErrorMessage(null)
-      }
-
-      if (data.type === 'facilitator_error') {
-        clearThinkingTimeout()
-        if (thinkingTimeoutRef.current) {
-          clearTimeout(thinkingTimeoutRef.current)
-          thinkingTimeoutRef.current = null
-        }
-        setIsThinking(false)
-        setStreamingText('')
-        setStreamingIndex(null)
-        setErrorMessage(`Something went wrong: ${data.error}`)
-        setMessages(prev => prev.map(msg =>
-          msg.id === data.backend_id
-            ? { ...msg, deliveryError: true, pending: false }
-            : msg
-        ))
-      }
-
-      if (data.type === 'mode_changed') {
-        setCurrentMode(data.mode)
-        setMessages(prev => [
-          ...prev,
-          {
-            id: 'mode-' + Date.now(),
-            speaker: 'RelateFX',
-            text: `Mode changed to: ${data.mode}`,
-            isFacilitator: true,
-            timestamp: new Date().toISOString(),
-          }
-        ])
-      }
-
-      if (data.type === 'message_ack') {
-        setMessages(prev => prev.map(msg =>
-          msg.clientId === data.client_id
-            ? { ...msg, pending: false }
-            : msg
-        ))
-      }
-
-      if (data.type === 'debrief_response') {
-        setDebriefLoading(false)
-        setDebrief({
-          text: data.text,
-          topics: data.topics || [],
-          emotional_arc: data.emotional_arc || '',
-          unresolved_items: data.unresolved_items || [],
-          recommendations: data.recommendations || '',
-          safety_flags: data.safety_flags || [],
-        })
-      }
-
-      // Phase 2: Handle state message with full session history on join
-      if (data.type === 'state') {
-        const s = data.state
-        if (!s) return
-
-        // Update mode if provided
-        if (s.mode) {
-          setCurrentMode(s.mode)
-        }
-
-        // Update other participant if there's another participant in the state
-        const store = useSessionStore.getState()
-        if (s.participants && Array.isArray(s.participants)) {
-          const other = s.participants.find((p: Participant) => p.id !== store.myId)
-          if (other) {
-            setOtherParticipant(other)
-            store.setOther(other)
-          }
-        }
-
-        // Populate messages with session history
-        if (s.utterances && Array.isArray(s.utterances)) {
-          const historyMessages: Message[] = s.utterances.map((u: Utterance) => ({
-            id: u.id || `hist-${Math.random().toString(36).slice(2)}`,
-            speaker: u.speaker_name || (u.speaker_id === 'facilitator' ? 'RelateFX' : 'Unknown'),
-            text: u.text,
-            isFacilitator: u.speaker_id === 'facilitator',
-            timestamp: u.timestamp || new Date().toISOString(),
-          }))
-          setMessages(historyMessages)
-        }
-
-        // Update status
-        if (s.participants && Array.isArray(s.participants)) {
-          const myName = s.participants.find((p: Participant) => p.id === store.myId)?.name
-          if (myName) {
-            setStatus(`Rejoined as ${myName}`)
-          }
-        }
-      }
-    }
-
-    ws.onclose = () => {
-      setConnected(false)
-      setWsReady(false)
-      setStatus('Disconnected')
-    }
-
-    ws.onerror = () => {
-      setStatus('Connection error — is backend running?')
-    }
-  }
-
-  const createSession = async () => {
-    if (!name.trim()) return
-    try {
-      const res = await fetch(apiUrl('/sessions'), { method: 'POST' })
-      const { session_id } = await res.json()
-      setSessionId(session_id)
-      connect(session_id, name.trim())
-      setJoined(true)
-    } catch {
-      setStatus('Error creating session — is backend running?')
-    }
-  }
-
-  const joinSession = () => {
-    if (!sessionId.trim() || !name.trim()) return
-    connect(sessionId, name.trim())
-  }
-
-  const clearThinkingTimeout = () => {
-    if (thinkingTimeoutRef.current) {
-      clearTimeout(thinkingTimeoutRef.current)
-      thinkingTimeoutRef.current = null
-    }
-  }
-
-  const sendMessage = () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
-    const store = useSessionStore.getState()
-    if (!input.trim() || !store.myId) return
-
-      clearThinkingTimeout()
-      setIsThinking(true)
-      setErrorMessage(null)
-
-      thinkingTimeoutRef.current = window.setTimeout(() => {
-        setIsThinking(false)
-        setErrorMessage("This is taking longer than expected. The backend may still finish; you can wait or send a shorter message.")
-    }, 45000)
-
-    const cid = clientIdRef.current()
-    const tempMsg = {
-      id: 'pending-' + cid,
-      speaker: nameRef.current,
-      text: input.trim(),
-      timestamp: new Date().toISOString(),
-      clientId: cid,
-      pending: true,
-    }
-
-    setMessages(prev => [...prev, tempMsg])
-    setInput('')
-
-    try {
-      wsRef.current.send(JSON.stringify({
-        type: 'message',
-        speaker_id: store.myId,
-        text: input.trim(),
-        client_id: cid,
-      }))
-    } catch {
-      clearThinkingTimeout()
-      setIsThinking(false)
-      setMessages(prev => prev.filter(m => m.clientId !== cid))
-      setInput(input.trim())
-      setErrorMessage("Failed to send message. Are you still connected?")
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      if (input.trim()) sendMessage()
-    }
-  }
-
-  if (!joined) {
-    return (
-      <main className="app">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <img className="brand-mark" src="/favicon.svg" alt="" />
-            <div>
-              <h1>RelateFX</h1>
-              <p className="subtitle">Structured conversation workspace for difficult moments.</p>
-            </div>
-          </div>
-        </header>
-
-        <div className="session-setup">
-          <div className="join-form">
-            <input
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (sessionId ? joinSession() : createSession())}
-            />
-            <input
-              type="text"
-              placeholder="Session ID (leave empty to create new)"
-              value={sessionId}
-              onChange={e => setSessionId(e.target.value)}
-            />
-            <button onClick={createSession} disabled={!name.trim()}>
-              Create New Session
-            </button>
-            {sessionId && (
-              <button className="secondary" onClick={joinSession} disabled={!name.trim()}>
-                Join Existing Session
-              </button>
-            )}
-          </div>
-          <aside className="setup-aside">
-            <span className="setup-aside-title">Local test build</span>
-            <p>
-              Create a room, share the session ID, and let RelateFX keep the exchange structured,
-              brief, and safety-aware.
-            </p>
-          </aside>
-        </div>
-
-        <div className="status error">{status}</div>
-      </main>
-    )
-  }
-
   return (
-    <main className="app">
-      <header className="app-header">
+    <main className="landing">
+      {/* Header */}
+      <header className="landing-header">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/favicon.svg" alt="" />
-          <div>
-            <h1>RelateFX</h1>
-            <p className="subtitle">Live facilitation room</p>
-          </div>
+          <img className="brand-mark" src="/logo.png" alt="Feltabout" />
         </div>
-        <div className="session-meta">
-          <span className="session-id">{sessionId}</span>
-          <span className={`connection-pill ${connected ? 'connected' : 'disconnected'}`}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </span>
-          <button className="history-btn" onClick={async () => {
-            setShowHistory(true)
-            try {
-              const res = await fetch(apiUrl('/sessions'))
-              const data = await res.json()
-              setHistorySessions(Array.isArray(data) ? data : [])
-            } catch {
-              setHistorySessions([])
-            }
-          }}>View History</button>
-        </div>
+          <nav className="landing-nav">
+            <Link href="/library" className="nav-link">Library</Link>
+            <Link href="/session" className="nav-link-subtle">Start a conversation</Link>
+          </nav>
       </header>
 
-      <div className="session-room">
-        <div className="participants-bar">
-          <span className="participant-chip you">{name} (you)</span>
-          {otherParticipant && (
-            <span className="participant-chip">{otherParticipant.name}</span>
-          )}
-          {!wsReady && <span className="participant-chip">connecting...</span>}
+      {/* Hero */}
+      <section className="hero-section">
+        <div className="hero-orb" aria-hidden="true" />
+        <div className="hero-content">
+          <h1 className="hero-headline">Reflect before you react.</h1>
+          <p className="hero-subtitle">
+            A calm space to prepare for the conversations that matter.
+          </p>
         </div>
 
-        <div className="mode-bar">
-          <span className="mode-label">Mode:</span>
-          {['facilitation', 'speaker-listener', 'repair', 'debrief'].map(mode => (
-            <button
-              key={mode}
-              className={`mode-btn ${currentMode === mode ? 'active' : ''}`}
-              onClick={() => {
-                wsRef.current?.send(JSON.stringify({ type: 'set_mode', mode }))
-                setCurrentMode(mode)
-              }}
-              disabled={!wsReady}
-            >
-              {mode}
-            </button>
-          ))}
-          <button
-            className="mode-btn"
-            onClick={() => {
-              setDebriefLoading(true)
-              setDebrief(null)
-              wsRef.current?.send(JSON.stringify({ type: 'request_debrief' }))
-            }}
-            disabled={!wsReady || debriefLoading}
-          >
-            {debriefLoading ? 'Summarizing...' : 'Summarize so far'}
-          </button>
-          {!escalated && (
-            <button
-              className="mode-btn escalate-btn"
-              onClick={async () => {
-                try {
-                  const store = useSessionStore.getState()
-                  await fetch(apiUrl(`/sessions/${sessionId}/escalate`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ triggered_by: store.myId, reason: 'Human escalation requested' }),
-                  })
-                  setEscalated(true)
-                  setMessages(prev => [
-                    ...prev,
-                    {
-                      id: 'escalate-' + Date.now(),
-                      speaker: 'RelateFX',
-                  text: 'Human review has been requested. This local build records the request; no external notification channel is configured yet.',
-                      isFacilitator: true,
-                      timestamp: new Date().toISOString(),
-                    }
-                  ])
-                } catch {
-                  setErrorMessage('Could not escalate — is the backend running?')
-                }
-              }}
-              disabled={!wsReady}
-            >
-              Escalate to human
-            </button>
-          )}
+        {/* Interactive prompt card */}
+        <Link href="/reflections/new" className="prompt-card">
+          <span className="prompt-caret" aria-hidden="true">|</span>
+          <span className="prompt-text">What conversation has been weighing on you lately?</span>
+          <span className="prompt-arrow" aria-hidden="true">→</span>
+        </Link>
+
+        {/* CTAs */}
+        <div className="hero-ctas">
+          <Link href="/reflections/new" className="btn-primary">
+            Start a reflection
+          </Link>
+          <Link href="/library" className="btn-secondary">
+            Open library
+          </Link>
         </div>
+      </section>
 
-        <div className="messages">
-          {messages.length === 0 && (
-            <div className="status">
-              {wsReady
-                ? 'Say something to start the conversation...'
-                : 'Connecting to session...'}
-            </div>
-          )}
-          {messages.map(msg => (
-            <div
-              key={msg.id}
-              className={`message ${msg.isFacilitator ? 'facilitator' : msg.speaker === name ? 'speaker-b' : 'speaker-a'}${msg.pending ? ' pending' : ''}${msg.deliveryError ? ' delivery-error' : ''}`}
-            >
-              {msg.safetyFlag && (
-                <div className="safety-flag">
-                  Safety flagged ({msg.safetyFlag.level}): {msg.safetyFlag.reason}
-                </div>
-              )}
-              <span className="msg-speaker">{msg.speaker}</span>
-              <div className="msg-text">{msg.text}</div>
-              <span className="msg-time">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-            </div>
-          ))}
-          {isThinking && !streamingText && (
-            <div className="message facilitator thinking">
-              <span className="msg-speaker">RelateFX</span>
-              <div className="msg-text">RelateFX is thinking...</div>
-            </div>
-          )}
-          {streamingText && (
-            <div className="message facilitator streaming">
-              <span className="msg-speaker">RelateFX</span>
-              <div className="msg-text">{streamingText}</div>
-            </div>
-          )}
-          {errorMessage && (
-            <div className="message error">
-              <span className="msg-speaker">Error</span>
-              <div className="msg-text">{errorMessage}</div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+      {/* Footer */}
+      <footer className="landing-footer">
+        <p className="footer-copy">
+          Not therapy. Not a crisis line. Just a calm space to prepare.
+        </p>
+        <p className="footer-secondary">
+          AI-guided communication clarity before difficult conversations.
+        </p>
+      </footer>
 
-        {debrief && (
-          <div className="debrief-panel">
-            <div className="debrief-header">
-              <span className="debrief-title">Session Summary</span>
-              <button className="debrief-close" onClick={() => setDebrief(null)}>×</button>
-            </div>
-            {debrief.topics.length > 0 && (
-              <div className="debrief-section">
-                <span className="debrief-label">Topics</span>
-                <div className="debrief-tags">
-                  {debrief.topics.map((t, i) => (
-                    <span key={i} className="debrief-tag">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {debrief.emotional_arc && (
-              <div className="debrief-section">
-                <span className="debrief-label">Emotional arc</span>
-                <p className="debrief-text">{debrief.emotional_arc}</p>
-              </div>
-            )}
-            {debrief.unresolved_items.length > 0 && (
-              <div className="debrief-section">
-                <span className="debrief-label">Unresolved</span>
-                <ul className="debrief-list">
-                  {debrief.unresolved_items.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {debrief.recommendations && (
-              <div className="debrief-section">
-                <span className="debrief-label">Next steps</span>
-                <p className="debrief-text">{debrief.recommendations}</p>
-              </div>
-            )}
-            {debrief.safety_flags.length > 0 && (
-              <div className="debrief-section">
-                <div className="safety-flag">
-                  {debrief.safety_flags.length} safety flag(s) flagged for human review
-                </div>
-              </div>
-            )}
-            {debrief.text && (
-              <div className="debrief-section">
-                <p className="debrief-text debrief-human">{debrief.text}</p>
-              </div>
-            )}
-          </div>
-        )}
+      <style jsx>{`
+        .landing {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          padding: 4rem clamp(1.5rem, 5vw, 3rem) 2rem;
+        }
 
-        {showHistory && (
-          <div className="history-panel">
-            <div className="history-header">
-              <span className="history-title">Session History</span>
-              <button className="debrief-close" onClick={() => { setShowHistory(false); setPlaybackSession(null) }}>×</button>
-            </div>
-            {!playbackSession ? (
-              <div className="history-list">
-                {historySessions.length === 0 && (
-                  <p className="history-empty">No past sessions found.</p>
-                )}
-                {historySessions.map(s => (
-                  <button key={s.session_id} className="history-item" onClick={async () => {
-                    setPlaybackSession(s.session_id)
-                    setPlaybackLoading(true)
-                    try {
-                      const res = await fetch(apiUrl(`/sessions/${s.session_id}`))
-                      const data = await res.json()
-                      setPlaybackMessages(
-                        (data.utterances || []).map((u: Utterance) => ({
-                          id: u.id,
-                          speaker: u.speaker_name,
-                          text: u.text,
-                          timestamp: u.timestamp,
-                          isFacilitator: u.speaker_id === 'facilitator',
-                        }))
-                      )
-                    } catch {
-                      setPlaybackMessages([])
-                    }
-                    setPlaybackLoading(false)
-                  }}>
-                    <span className="history-sid">{s.session_id}</span>
-                    <span className="history-meta">{s.mode} · {new Date(s.created_at).toLocaleDateString()}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="playback-view">
-                <button className="history-back" onClick={() => setPlaybackSession(null)}>← Back</button>
-                <div className="playback-messages">
-                  {playbackLoading ? <p className="history-empty">Loading...</p> :
-                   playbackMessages.map(msg => (
-                    <div key={msg.id} className={`message ${msg.isFacilitator ? 'facilitator' : 'speaker-a'}`}>
-                      <span className="msg-speaker">{msg.speaker}</span>
-                      <div className="msg-text">{msg.text}</div>
-                      <span className="msg-time">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        /* Header */
+        .landing-header {
+          width: 100%;
+          max-width: 960px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 3rem;
+        }
 
-        {debriefLoading && !debrief && (
-          <div className="debrief-panel loading">
-            <div className="debrief-header">
-              <span className="debrief-title">Generating summary...</span>
-            </div>
-            <div className="debrief-loading-dots">
-              <span>.</span><span>.</span><span>.</span>
-            </div>
-          </div>
-        )}
+        .brand-mark {
+          display: block;
+          height: clamp(32px, 5vw, 48px);
+          width: auto;
+        }
 
-        <div className="input-area">
-          <input
-            type="text"
-            placeholder={wsReady ? "Type your message..." : "Connecting..."}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={!wsReady}
-          />
-          <button onClick={sendMessage} disabled={!wsReady}>Send</button>
-        </div>
-      </div>
+        .landing-nav {
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+        }
+
+        .nav-link {
+          font-size: 0.9rem;
+          font-weight: 500;
+          color: var(--text-soft);
+          text-decoration: none;
+          transition: color var(--duration-fast) var(--ease-soft);
+        }
+
+        .nav-link:hover {
+          color: var(--text);
+        }
+
+        .nav-link-subtle {
+          display: inline-flex;
+          align-items: center;
+          min-height: 36px;
+          padding: 0.5rem 1.25rem;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: rgba(255, 255, 255, 0.55);
+          backdrop-filter: blur(8px);
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: var(--text-soft);
+          text-decoration: none;
+          transition: all var(--duration-normal) var(--ease-soft);
+        }
+
+        .nav-link-subtle:hover {
+          background: rgba(255, 255, 255, 0.85);
+          border-color: var(--accent-border);
+          color: var(--accent);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(51, 214, 200, 0.15);
+        }
+
+        .nav-link-subtle:active {
+          transform: translateY(0);
+        }
+
+        /* Hero */
+        .hero-section {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          width: 100%;
+          max-width: 640px;
+          position: relative;
+        }
+
+        .hero-orb {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: clamp(280px, 50vw, 400px);
+          height: clamp(280px, 50vw, 400px);
+          border-radius: 50%;
+          background: var(--gradient-core);
+          filter: blur(80px);
+          opacity: 0.35;
+          animation: orb-breathe 9s ease-in-out infinite;
+          pointer-events: none;
+          z-index: -1;
+        }
+
+        @keyframes orb-breathe {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+          50% { transform: translate(-50%, -52%) scale(1.04); opacity: 0.4; }
+        }
+
+        .hero-content {
+          margin-bottom: 2rem;
+        }
+
+        .hero-headline {
+          font-size: clamp(2rem, 6vw, 3.5rem);
+          font-weight: 600;
+          color: var(--text);
+          letter-spacing: -0.03em;
+          line-height: 1.1;
+          margin-bottom: 1rem;
+        }
+
+        .hero-subtitle {
+          font-size: 1.125rem;
+          color: var(--text-muted);
+          max-width: 400px;
+          margin: 0 auto;
+          line-height: 1.5;
+        }
+
+        /* Prompt card */
+        .prompt-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          width: 100%;
+          max-width: 480px;
+          min-height: 72px;
+          padding: 1.25rem 1.5rem;
+          margin-bottom: 2rem;
+          border-radius: 20px;
+          background: var(--card);
+          backdrop-filter: blur(20px);
+          border: 1px solid var(--border-subtle);
+          box-shadow: var(--shadow-card);
+          text-decoration: none;
+          transition: all var(--duration-normal) var(--ease-soft);
+          cursor: pointer;
+        }
+
+        .prompt-card:hover {
+          background: var(--card-solid);
+          border-color: var(--accent-border);
+          box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
+          transform: translateY(-3px);
+        }
+
+        .prompt-card:hover .prompt-arrow {
+          transform: translateX(4px);
+        }
+
+        .prompt-caret {
+          font-size: 1.5rem;
+          font-weight: 300;
+          color: var(--accent);
+          flex-shrink: 0;
+          animation: caret-blink 1.2s ease-in-out infinite;
+        }
+
+        @keyframes caret-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+
+        .prompt-text {
+          flex: 1;
+          font-size: 1rem;
+          font-weight: 500;
+          color: var(--text-soft);
+          text-align: left;
+        }
+
+        .prompt-arrow {
+          font-size: 1.25rem;
+          color: var(--text-quiet);
+          transition: transform var(--duration-normal) var(--ease-soft);
+          flex-shrink: 0;
+        }
+
+        /* CTAs */
+        .hero-ctas {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+          width: 100%;
+          max-width: 320px;
+        }
+
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          min-height: 56px;
+          padding: 1.1rem 2rem;
+          border: none;
+          border-radius: 999px;
+          background: var(--gradient-core);
+          color: #FFFFFF;
+          font-size: 1rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          text-decoration: none;
+          box-shadow: 0 4px 20px rgba(51, 214, 200, 0.3), 0 2px 8px rgba(0, 0, 0, 0.06);
+          transition: all var(--duration-normal) var(--ease-soft);
+        }
+
+        .btn-primary:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 32px rgba(51, 214, 200, 0.4), 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-primary:active {
+          transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          min-height: 52px;
+          padding: 0.9rem 1.75rem;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--bg-deep);
+          color: var(--text-soft);
+          font-size: 0.95rem;
+          font-weight: 500;
+          text-decoration: none;
+          transition: all var(--duration-normal) var(--ease-soft);
+        }
+
+        .btn-secondary:hover {
+          background: var(--card-solid);
+          border-color: var(--text-quiet);
+          color: var(--text);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-sm);
+        }
+
+        /* Footer */
+        .landing-footer {
+          width: 100%;
+          max-width: 960px;
+          padding-top: 3rem;
+          text-align: center;
+        }
+
+        .footer-copy {
+          font-size: 1rem;
+          font-weight: 500;
+          color: var(--text-soft);
+          margin-bottom: 0.5rem;
+        }
+
+        .footer-secondary {
+          font-size: 0.85rem;
+          color: var(--text-quiet);
+        }
+
+        /* Responsive */
+        @media (min-width: 640px) {
+          .hero-ctas {
+            flex-direction: row;
+            max-width: 400px;
+          }
+
+          .btn-primary,
+          .btn-secondary {
+            width: auto;
+            flex: 1;
+          }
+        }
+      `}</style>
     </main>
   )
 }

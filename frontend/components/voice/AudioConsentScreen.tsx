@@ -21,7 +21,7 @@ interface AudioConsentScreenProps {
 export function AudioConsentScreen({
   onAccept,
   onDecline,
-  facilitatorName = "RelateFX",
+  facilitatorName = "Feltabout",
 }: AudioConsentScreenProps) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -137,7 +137,7 @@ export function AudioConsentScreen({
             type="button"
             onClick={() => {
               if (dontShowAgain) {
-                try { localStorage.setItem("relatefx_audio_consent", "accepted"); } catch {}
+                try { localStorage.setItem("feltabout_audio_consent", "accepted"); } catch {}
               }
               onAccept();
             }}
@@ -159,7 +159,7 @@ export function AudioConsentScreen({
             type="button"
             onClick={() => {
               if (dontShowAgain) {
-                try { localStorage.setItem("relatefx_audio_consent", "declined"); } catch {}
+                try { localStorage.setItem("feltabout_audio_consent", "declined"); } catch {}
               }
               onDecline();
             }}
@@ -194,7 +194,7 @@ export function AudioConsentScreen({
 export function useAudioConsent(): boolean | null {
   if (typeof window === "undefined") return null;
   try {
-    const stored = localStorage.getItem("relatefx_audio_consent");
+    const stored = localStorage.getItem("feltabout_audio_consent");
     if (stored === "accepted") return true;
     if (stored === "declined") return false;
   } catch {}

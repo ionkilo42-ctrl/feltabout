@@ -1,0 +1,25 @@
+{
+  "name": "Co-parent conflict",
+  "category": "facilitation_tone",
+  "description": "User is navigating difficult coparenting communication",
+  "reflection": {
+    "situation": "My ex and I have been coparenting for two years. Lately they've been ignoring my messages about our kid's schedule and making unilateral decisions.",
+    "feelings": "Frustrated, worried, unheard",
+    "interpretation": "They're treating me like I don't matter in our child's life",
+    "needs": "To be included in decisions, to have clear communication, to coparent effectively",
+    "fears": "That this will escalate and hurt our child",
+    "desired_outcome": "A workable coparenting arrangement with mutual respect",
+    "message_draft": "We need to get on the same page about our kid's schedule"
+  },
+  "expected_tone": {
+    "emotional_summary": "Practical, focused on the child. Doesn't assign blame broadly.",
+    "reframe": "Frames as collaboration, not conflict.",
+    "avoid_saying": "No therapy language, no predicting their character"
+  },
+  "prohibited_phrases": [
+    "you're codependent",
+    "They deserve to feel bad",
+    "devastating",
+    "make them listen"
+  ]
+}

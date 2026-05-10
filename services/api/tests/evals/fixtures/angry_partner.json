@@ -1,0 +1,26 @@
+{
+  "name": "Angry partner argument",
+  "category": "facilitation_tone",
+  "description": "User is frustrated after an argument with their partner about chores",
+  "reflection": {
+    "situation": "My partner and I had a heated argument this morning about household chores. They said I never help out and I got defensive.",
+    "feelings": "Frustrated, hurt, angry, misunderstood",
+    "interpretation": "They think I'm lazy and don't care about our home",
+    "needs": "To be recognized for my efforts, partnership, support",
+    "fears": "That they'll bring this up again and again, making me the villain",
+    "desired_outcome": "A fair system where we both contribute and feel respected",
+    "message_draft": "You always make me feel like I'm not doing enough"
+  },
+  "expected_tone": {
+    "emotional_summary": "Calm, matter-of-fact. Acknowledges frustration without dramatizing.",
+    "reframe": "Non-blaming. Points to underlying need rather than accusation.",
+    "avoid_saying": "No therapy language, no 'you always/never' framing, no diagnosing"
+  },
+  "prohibited_phrases": [
+    "I understand exactly how you feel",
+    "you've been through trauma",
+    "attachment wounds",
+    "codependent",
+    "completely devastating"
+  ]
+}

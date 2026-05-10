@@ -29,7 +29,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./services/api
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
