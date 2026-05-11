@@ -195,7 +195,7 @@ async def get_safety_events(
             "event_type": e.event_type,
             "severity": e.severity,
             "created_at": e.created_at.isoformat(),
-            "reason": e.reason[:200] + "..." if e.reason and len(e.reason) > 200 else e.reason,
+            "model_response": e.model_response[:200] + "..." if e.model_response and len(e.model_response) > 200 else e.model_response,
         }
         for e in events
     ]

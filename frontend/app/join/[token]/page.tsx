@@ -114,33 +114,24 @@ export default function JoinPage() {
 
         {status === 'ready' && (
           <div className="join-card">
-            <div className="invite-icon">💬</div>
-            <h2>You've been invited to a Feltabout conversation</h2>
+            <div className="invite-icon">🔒</div>
+            <h2>Conversation invite</h2>
+            <div className="mvp-notice">
+              <p><strong>This feature is not yet available in MVP 1.</strong></p>
+              <p>MVP 1 focuses on individual reflection and communication preparation.</p>
+            </div>
             {spaceName && (
-              <p className="space-name-label">"{spaceName}"</p>
+              <p className="space-name-label">Space: "{spaceName}"</p>
             )}
             <p className="join-description">
-              This is a private, facilitated conversation space.
-              What's your name?
+              Ready to start your own reflection?
             </p>
-            
-            <form className="join-form" onSubmit={handleJoin}>
-              <input
-                type="text"
-                placeholder="Your name"
-                value={displayName}
-                onChange={e => {
-                  setDisplayName(e.target.value)
-                  if (nameError) setNameError('')
-                }}
-                autoFocus
-              />
-              {nameError && <p className="name-error">{nameError}</p>}
-              
-              <button type="submit" disabled={isJoining || !displayName.trim()}>
-                {isJoining ? 'Joining...' : 'Join conversation'}
-              </button>
-            </form>
+            <Link href="/session" className="btn-primary">
+              Begin reflection
+            </Link>
+            <button className="secondary" onClick={() => router.push('/')}>
+              Go to homepage
+            </button>
           </div>
         )}
 

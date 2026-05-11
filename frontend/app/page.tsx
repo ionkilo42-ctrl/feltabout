@@ -2,127 +2,216 @@
 
 import Link from 'next/link'
 
-export default function Home() {
+// Primary emotion colors
+const EMOTION_COLORS = {
+  joy: '#FFD93D',
+  sadness: '#6B9FFF',
+  anger: '#FF6B6B',
+  fear: '#B794F4',
+  disgust: '#6BCB77',
+}
+
+// Orb data for the emotional warehouse preview
+const MOCK_ORBS = [
+  { label: 'joy', color: EMOTION_COLORS.joy, size: 48, top: '15%', left: '20%' },
+  { label: 'sadness', color: EMOTION_COLORS.sadness, size: 36, top: '25%', left: '55%' },
+  { label: 'anger', color: EMOTION_COLORS.anger, size: 42, top: '45%', left: '35%' },
+  { label: 'fear', color: EMOTION_COLORS.fear, size: 38, top: '60%', left: '65%' },
+  { label: 'disgust', color: EMOTION_COLORS.disgust, size: 30, top: '70%', left: '25%' },
+  { label: 'joy', color: EMOTION_COLORS.joy, size: 34, top: '35%', left: '70%' },
+  { label: 'sadness', color: EMOTION_COLORS.sadness, size: 44, top: '55%', left: '45%' },
+  { label: 'anger', color: EMOTION_COLORS.anger, size: 28, top: '75%', left: '55%' },
+  { label: 'fear', color: EMOTION_COLORS.fear, size: 40, top: '20%', left: '40%' },
+  { label: 'joy', color: EMOTION_COLORS.joy, size: 32, top: '80%', left: '40%' },
+]
+
+// Mock stats
+const MOCK_STATS = [
+  { label: 'Feelings tracked', value: '247', unit: 'this month' },
+  { label: 'Top emotion', value: 'joy', unit: '', color: EMOTION_COLORS.joy },
+  { label: 'Needs identified', value: '38', unit: 'unique needs' },
+  { label: 'About', value: '12', unit: 'entities tracked' },
+]
+
+// Mock recent feelings
+const MOCK_RECENT = [
+  { feeling: 'grateful', about: 'Crystal', time: '2h ago', color: EMOTION_COLORS.joy },
+  { feeling: 'anxious', about: 'work', time: '5h ago', color: EMOTION_COLORS.fear },
+  { feeling: 'hurt', about: 'Sarah', time: '1d ago', color: EMOTION_COLORS.sadness },
+  { feeling: 'frustrated', about: 'Starbucks', time: '2d ago', color: EMOTION_COLORS.anger },
+]
+
+export default function HomePage() {
   return (
-    <main className="landing">
+    <main className="home">
       {/* Header */}
-      <header className="landing-header">
+      <header className="home-header">
         <div className="brand-lockup">
           <img className="brand-mark" src="/logo.png" alt="Feltabout" />
         </div>
-          <nav className="landing-nav">
-            <Link href="/library" className="nav-link">Library</Link>
-            <Link href="/session" className="nav-link-subtle">Start a conversation</Link>
-          </nav>
+        <nav className="home-nav">
+          <Link href="/aimee" className="nav-link">Aimee</Link>
+          <Link href="/feel-flow" className="nav-link">Feel Flow</Link>
+          <Link href="/memories" className="nav-link">Memories</Link>
+          <Link href="/entities" className="nav-link">Entities</Link>
+          <Link href="/needs" className="nav-link">Needs</Link>
+          <Link href="/reflections/new" className="nav-cta">Reflect</Link>
+        </nav>
       </header>
 
       {/* Hero */}
       <section className="hero-section">
-        <div className="hero-content">
-          <h1 className="hero-headline">Reflect before you react.</h1>
-          <p className="hero-subtitle">
-            Feltabout helps you organize your thoughts, prepare for difficult conversations, and communicate with more clarity.
-          </p>
+        <div className="hero-orb-field">
+          {MOCK_ORBS.map((orb, i) => (
+            <div
+              key={i}
+              className="hero-orb"
+              style={{
+                width: orb.size,
+                height: orb.size,
+                background: orb.color,
+                top: orb.top,
+                left: orb.left,
+                opacity: 0.7 + (i % 3) * 0.1,
+              }}
+            />
+          ))}
         </div>
+        <div className="hero-content">
+          <h1 className="hero-headline">A place to master your emotions.</h1>
+          <p className="hero-subtitle">
+            Understand what you feel, what it's about, and what your feelings need.
+          </p>
+          <div className="hero-ctas">
+            <Link href="/aimee" className="btn-primary">
+              Talk to Aimee
+            </Link>
+            <Link href="/feel-flow" className="btn-secondary">
+              See your Feel Flow
+            </Link>
+          </div>
+        </div>
+      </section>
 
-        {/* Interactive prompt card */}
-        <Link href="/reflections/new" className="prompt-card">
-          <span className="prompt-caret" aria-hidden="true">|</span>
-          <span className="prompt-text">What conversation has been weighing on you lately?</span>
-          <span className="prompt-arrow" aria-hidden="true">→</span>
-        </Link>
+      {/* Quick Stats */}
+      <section className="stats-section">
+        <div className="stats-grid">
+          {MOCK_STATS.map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <div className="stat-value" style={stat.color ? { color: stat.color } : {}}>
+                {stat.value}
+              </div>
+              <div className="stat-label">{stat.label}</div>
+              {stat.unit && <div className="stat-unit">{stat.unit}</div>}
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {/* CTAs */}
-        <div className="hero-ctas">
-          <Link href="/reflections/new" className="btn-primary">
-            Start a reflection
-          </Link>
-          <Link href="/library" className="btn-secondary">
-            Open library
-          </Link>
+      {/* Recent Feelings */}
+      <section className="recent-section">
+        <h2 className="section-title">Recent feelings</h2>
+        <div className="recent-list">
+          {MOCK_RECENT.map((item, i) => (
+            <div key={i} className="recent-item">
+              <div className="recent-dot" style={{ background: item.color }} />
+              <div className="recent-info">
+                <span className="recent-feeling">{item.feeling}</span>
+                <span className="recent-about"> about {item.about}</span>
+              </div>
+              <span className="recent-time">{item.time}</span>
+            </div>
+          ))}
+        </div>
+        <Link href="/memories" className="see-all-link">See all memories →</Link>
+      </section>
+
+      {/* Emotion Color Legend */}
+      <section className="emotion-legend">
+        <h2 className="section-title">Primary emotions</h2>
+        <div className="emotion-pills">
+          {Object.entries(EMOTION_COLORS).map(([emotion, color]) => (
+            <span key={emotion} className="emotion-pill" style={{ '--emotion-color': color } as React.CSSProperties}>
+              <span className="emotion-dot" style={{ background: color }} />
+              {emotion}
+            </span>
+          ))}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="landing-footer">
-        <p className="footer-copy">
-          Not therapy. Not a crisis line. Just a calm space to prepare.
-        </p>
-        <p className="footer-secondary">
-          AI-guided communication clarity before difficult conversations.
-        </p>
+      <footer className="home-footer">
+        <p className="footer-copy">Your feelings belong to you.</p>
+        <p className="footer-secondary">feltabout never sells your emotional data.</p>
       </footer>
 
-      <style jsx>{`
-        .landing {
+      <style>{`
+        .home {
           min-height: 100vh;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: space-between;
-          padding: 4rem clamp(1.5rem, 5vw, 3rem) 2rem;
+          padding: 0 clamp(1.5rem, 5vw, 3rem);
+          position: relative;
+          overflow: hidden;
         }
 
         /* Header */
-        .landing-header {
+        .home-header {
           width: 100%;
-          max-width: 960px;
+          max-width: 1100px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 3rem;
+          padding: 2rem 0 1.5rem;
         }
 
         .brand-mark {
           display: block;
-          height: clamp(32px, 5vw, 48px);
+          height: clamp(28px, 4vw, 40px);
           width: auto;
         }
 
-        .landing-nav {
+        .home-nav {
           display: flex;
           align-items: center;
-          gap: 1.5rem;
+          gap: 0.25rem;
         }
 
         .nav-link {
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           font-weight: 500;
           color: var(--text-soft);
           text-decoration: none;
-          transition: color var(--duration-fast) var(--ease-soft);
+          padding: 0.5rem 0.75rem;
+          border-radius: 12px;
+          transition: all var(--duration-fast) var(--ease-soft);
         }
 
         .nav-link:hover {
+          background: var(--hover-bg);
           color: var(--text);
         }
 
-        .nav-link-subtle {
+        .nav-cta {
           display: inline-flex;
           align-items: center;
           min-height: 36px;
           padding: 0.5rem 1.25rem;
           border-radius: 999px;
-          border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.55);
-          backdrop-filter: blur(8px);
+          background: var(--gradient-core);
+          color: #FFFFFF;
           font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--text-soft);
+          font-weight: 600;
           text-decoration: none;
+          margin-left: 0.5rem;
+          box-shadow: 0 2px 12px rgba(51, 214, 200, 0.2);
           transition: all var(--duration-normal) var(--ease-soft);
         }
 
-        .nav-link-subtle:hover {
-          background: rgba(255, 255, 255, 0.85);
-          border-color: var(--accent-border);
-          color: var(--accent);
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(51, 214, 200, 0.15);
-        }
-
-        .nav-link-subtle:active {
-          transform: translateY(0);
+        .nav-cta:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 20px rgba(51, 214, 200, 0.35);
         }
 
         /* Hero */
@@ -136,96 +225,65 @@ export default function Home() {
           width: 100%;
           max-width: 640px;
           position: relative;
+          padding: 3rem 0;
+        }
+
+        .hero-orb-field {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 400px;
+          height: 300px;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .hero-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(12px);
+          animation: orb-float 6s ease-in-out infinite;
+        }
+
+        .hero-orb:nth-child(odd) { animation-delay: 0.5s; }
+        .hero-orb:nth-child(3n) { animation-delay: 1s; }
+
+        @keyframes orb-float {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(6px, -8px); }
         }
 
         .hero-content {
-          margin-bottom: 2rem;
+          position: relative;
+          z-index: 1;
         }
 
         .hero-headline {
-          font-size: clamp(2rem, 6vw, 3.5rem);
+          font-size: clamp(2rem, 5vw, 3.25rem);
           font-weight: 600;
           color: var(--text);
           letter-spacing: 0;
-          line-height: 1.1;
+          line-height: 1.15;
           margin-bottom: 1rem;
         }
 
         .hero-subtitle {
           font-size: 1.125rem;
           color: var(--text-muted);
-          max-width: 400px;
-          margin: 0 auto;
+          max-width: 440px;
+          margin: 0 auto 2.5rem;
           line-height: 1.5;
         }
 
-        /* Prompt card */
-        .prompt-card {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          width: 100%;
-          max-width: 480px;
-          min-height: 72px;
-          padding: 1.25rem 1.5rem;
-          margin-bottom: 2rem;
-          border-radius: 20px;
-          background: var(--card);
-          backdrop-filter: blur(20px);
-          border: 1px solid var(--border-subtle);
-          box-shadow: var(--shadow-card);
-          text-decoration: none;
-          transition: all var(--duration-normal) var(--ease-soft);
-          cursor: pointer;
-        }
-
-        .prompt-card:hover {
-          background: var(--card-solid);
-          border-color: var(--accent-border);
-          box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
-          transform: translateY(-3px);
-        }
-
-        .prompt-card:hover .prompt-arrow {
-          transform: translateX(4px);
-        }
-
-        .prompt-caret {
-          font-size: 1.5rem;
-          font-weight: 300;
-          color: var(--accent);
-          flex-shrink: 0;
-          animation: caret-blink 1.2s ease-in-out infinite;
-        }
-
-        @keyframes caret-blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-
-        .prompt-text {
-          flex: 1;
-          font-size: 1rem;
-          font-weight: 500;
-          color: var(--text-soft);
-          text-align: left;
-        }
-
-        .prompt-arrow {
-          font-size: 1.25rem;
-          color: var(--text-quiet);
-          transition: transform var(--duration-normal) var(--ease-soft);
-          flex-shrink: 0;
-        }
-
-        /* CTAs */
         .hero-ctas {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 1rem;
+          gap: 0.75rem;
           width: 100%;
           max-width: 320px;
+          margin: 0 auto;
         }
 
         .btn-primary {
@@ -252,10 +310,6 @@ export default function Home() {
           box-shadow: 0 8px 32px rgba(51, 214, 200, 0.4), 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
-        .btn-primary:active {
-          transform: translateY(-1px);
-        }
-
         .btn-secondary {
           display: inline-flex;
           align-items: center;
@@ -265,7 +319,8 @@ export default function Home() {
           padding: 0.9rem 1.75rem;
           border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--bg-deep);
+          background: var(--card);
+          backdrop-filter: blur(12px);
           color: var(--text-soft);
           font-size: 0.95rem;
           font-weight: 500;
@@ -281,23 +336,181 @@ export default function Home() {
           box-shadow: var(--shadow-sm);
         }
 
+        /* Stats */
+        .stats-section {
+          width: 100%;
+          max-width: 800px;
+          padding: 2rem 0;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 1rem;
+        }
+
+        .stat-card {
+          background: var(--card);
+          backdrop-filter: blur(20px);
+          border: 1px solid var(--border-subtle);
+          border-radius: 20px;
+          padding: 1.25rem;
+          text-align: center;
+          box-shadow: var(--shadow-card);
+        }
+
+        .stat-value {
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: var(--text-soft);
+        }
+
+        .stat-unit {
+          font-size: 0.7rem;
+          color: var(--text-quiet);
+          margin-top: 0.15rem;
+        }
+
+        /* Recent */
+        .recent-section {
+          width: 100%;
+          max-width: 560px;
+          padding: 1.5rem 0;
+        }
+
+        .section-title {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text-quiet);
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          margin-bottom: 1rem;
+        }
+
+        .recent-list {
+          background: var(--card);
+          backdrop-filter: blur(20px);
+          border: 1px solid var(--border-subtle);
+          border-radius: 20px;
+          overflow: hidden;
+          box-shadow: var(--shadow-card);
+        }
+
+        .recent-item {
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+          padding: 1rem 1.25rem;
+          border-bottom: 1px solid var(--border-subtle);
+          transition: background var(--duration-fast) var(--ease-soft);
+        }
+
+        .recent-item:last-child {
+          border-bottom: none;
+        }
+
+        .recent-item:hover {
+          background: var(--hover-bg);
+        }
+
+        .recent-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .recent-info {
+          flex: 1;
+          font-size: 0.9rem;
+        }
+
+        .recent-feeling {
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .recent-about {
+          color: var(--text-muted);
+        }
+
+        .recent-time {
+          font-size: 0.75rem;
+          color: var(--text-quiet);
+          flex-shrink: 0;
+        }
+
+        .see-all-link {
+          display: inline-block;
+          margin-top: 1rem;
+          font-size: 0.85rem;
+          color: var(--accent);
+          text-decoration: none;
+          font-weight: 500;
+        }
+
+        .see-all-link:hover {
+          opacity: 0.8;
+        }
+
+        /* Emotion Legend */
+        .emotion-legend {
+          width: 100%;
+          max-width: 560px;
+          padding: 1.5rem 0;
+        }
+
+        .emotion-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .emotion-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.875rem;
+          border-radius: 999px;
+          background: var(--card);
+          border: 1px solid var(--border-subtle);
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: var(--text-soft);
+          text-transform: capitalize;
+        }
+
+        .emotion-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
         /* Footer */
-        .landing-footer {
+        .home-footer {
           width: 100%;
           max-width: 960px;
-          padding-top: 3rem;
+          padding: 3rem 0 2rem;
           text-align: center;
         }
 
         .footer-copy {
-          font-size: 1rem;
+          font-size: 0.875rem;
           font-weight: 500;
           color: var(--text-soft);
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.35rem;
         }
 
         .footer-secondary {
-          font-size: 0.85rem;
+          font-size: 0.75rem;
           color: var(--text-quiet);
         }
 
@@ -308,10 +521,19 @@ export default function Home() {
             max-width: 400px;
           }
 
-          .btn-primary,
-          .btn-secondary {
+          .btn-primary, .btn-secondary {
             width: auto;
             flex: 1;
+          }
+
+          .home-nav {
+            gap: 0.5rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .home-nav {
+            display: none;
           }
         }
       `}</style>

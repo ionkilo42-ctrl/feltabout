@@ -7,10 +7,14 @@ import { apiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/sessionStore'
 
 interface ReflectionOutput {
-  emotions?: string[]
-  reframing?: string
-  message_draft?: string
-  analysis?: string
+  emotional_summary?: string
+  needs_summary?: string
+  assumptions?: string
+  reframe?: string
+  avoid_saying?: string
+  conversation_opener?: string
+  followup_questions?: string
+  repair_statement?: string
 }
 
 interface Reflection {
@@ -100,8 +104,14 @@ export default function ReflectionDetailPage() {
                   headers: { Authorization: `Bearer ${token}` },
                 })
                 if (res.ok) {
-                  const updated = await res.json()
-                  setReflection(prev => prev ? { ...prev, ...updated } : prev)
+                  // Refetch the reflection to get the generated output
+                  const refRes = await fetch(apiUrl(`/reflections/${id}`), {
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                  if (refRes.ok) {
+                    const updated = await refRes.json()
+                    setReflection(updated)
+                  }
                 }
               }}
             >
@@ -130,37 +140,61 @@ export default function ReflectionDetailPage() {
               <h2>Your reflection</h2>
             </div>
 
-            {output.emotions && output.emotions.length > 0 && (
-              <div className="output-section">
-                <h3>What you're carrying</h3>
-                <div className="emotion-tags">
-                  {output.emotions.map((e, i) => (
-                    <span key={i} className="emotion-tag">{e}</span>
-                  ))}
-                </div>
+            {output.emotional_summary && (
+              <div className="output-section calm">
+                <div className="section-label">What you're carrying</div>
+                <p className="output-text">{output.emotional_summary}</p>
               </div>
             )}
 
-            {output.reframing && (
-              <div className="output-section">
-                <h3>What might be happening</h3>
-                <p className="output-text">{output.reframing}</p>
+            {output.needs_summary && (
+              <div className="output-section calm">
+                <div className="section-label">What you need</div>
+                <p className="output-text">{output.needs_summary}</p>
               </div>
             )}
 
-            {output.analysis && (
+            {output.assumptions && (
               <div className="output-section">
-                <h3>Where things could go</h3>
-                <p className="output-text">{output.analysis}</p>
+                <div className="section-label">Assumptions to check</div>
+                <p className="output-text">{output.assumptions}</p>
               </div>
             )}
 
-            {output.message_draft && (
+            {output.reframe && (
+              <div className="output-section">
+                <div className="section-label">A clearer frame</div>
+                <p className="output-text">{output.reframe}</p>
+              </div>
+            )}
+
+            {output.avoid_saying && (
+              <div className="output-section">
+                <div className="section-label">Things to avoid</div>
+                <p className="output-text">{output.avoid_saying}</p>
+              </div>
+            )}
+
+            {output.conversation_opener && (
               <div className="output-section draft-section">
-                <h3>A calmer opening line</h3>
+                <div className="section-label">A way to begin</div>
                 <blockquote className="message-draft">
-                  {output.message_draft}
+                  {output.conversation_opener}
                 </blockquote>
+              </div>
+            )}
+
+            {output.followup_questions && (
+              <div className="output-section">
+                <div className="section-label">Questions to sit with</div>
+                <p className="output-text">{output.followup_questions}</p>
+              </div>
+            )}
+
+            {output.repair_statement && (
+              <div className="output-section">
+                <div className="section-label">Repair statement</div>
+                <p className="output-text">{output.repair_statement}</p>
               </div>
             )}
           </div>

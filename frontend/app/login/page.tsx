@@ -52,10 +52,10 @@ function LoginForm() {
           <img className="brand-mark" src="/logo.png" alt="" />
         </div>
         <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-intro">
-            <h2>Welcome back</h2>
-            <p>Sign in to continue your reflection space.</p>
-          </div>
+            <div className="form-intro">
+              <h2>Welcome back</h2>
+              <p>Sign in to your account.</p>
+            </div>
           <input
             type="email"
             placeholder="Your email"

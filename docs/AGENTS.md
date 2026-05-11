@@ -33,17 +33,17 @@ feltabout/
 ├── apps/
 │   └── mobile/          # React Native (Expo) — individual reflection
 ├── services/
-│   └── api/             # FastAPI — REST API + AI generation
+│   └── api/             # FastAPI — REST API + AI generation (ACTIVE MVP1)
 ├── packages/
 │   └── shared/          # Shared TypeScript types
 ├── frontend/            # Next.js — MVP web app
-├── backend/             # Older voice/WebSocket system for MVP 2 reference
+├── backend/             # Legacy MVP2 reference only (NOT ACTIVE)
 ├── docs/                # Project docs
 ├── AGENTS.md            # This file
 └── README.md            # Setup instructions
 ```
 
-MVP 1 uses `services/api`, `frontend`, `apps/mobile`, and `packages/shared`. `backend/` contains older voice/WebSocket infrastructure and should not be the primary MVP runtime unless MVP 2 work is explicitly resumed.
+**IMPORTANT:** MVP 1 runtime is `services/api/` only. The `backend/` directory contains older voice/WebSocket infrastructure and is NOT active for MVP 1 development. Do not add new code to `backend/` — it is preserved for reference only.
 
 ---
 

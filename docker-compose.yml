@@ -1,43 +1,57 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Feltabout — docker-compose for local MVP development
-# ─────────────────────────────────────────────────────────────────────────────
-# Usage:
-#   cp services/api/.env.example services/api/.env
-#   docker compose up         # starts all services
-#   docker compose logs -f    # tail backend logs
+# ═══════════════════════════════════════════════════════════════════════════════
+# Feltabout — Docker Compose for MVP 1 Development
+# ═══════════════════════════════════════════════════════════════════════════════
+# Single environment file (.env) controls all configuration.
+# See .env.example for all available options.
 #
-# For production, replace `build:` with `image:` and set image tags in CI.
-# ─────────────────────────────────────────────────────────────────────────────
+# Quick start:
+#   docker compose up --build
+#
+# View logs:
+#   docker compose logs -f
+#
+# Stop:
+#   docker compose down
+#
+# Reset database:
+#   docker compose down -v && docker compose up --build
+# ═══════════════════════════════════════════════════════════════════════════════
 
 services:
+  # ─── PostgreSQL Database ───────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    container_name: feltabout_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: feltabout
-      POSTGRES_USER: feltabout
+      POSTGRES_DB: ${POSTGRES_DB:-feltabout}
+      POSTGRES_USER: ${POSTGRES_USER:-feltabout}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U feltabout -d feltabout"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-feltabout} -d ${POSTGRES_DB:-feltabout}"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
+  # ─── API Service (FastAPI) ─────────────────────────────────────────────────
   api:
     build:
       context: ./services/api
       dockerfile: Dockerfile
+    container_name: feltabout_api
     restart: unless-stopped
     env_file:
-      - ./services/api/.env
+      - path: ./.env
+        required: true
     environment:
-      # Override DATABASE_URL to point to the postgres service
-      DATABASE_URL: postgresql+asyncpg://feltabout:${POSTGRES_PASSWORD:-change-me-in-prod}@postgres:5432/feltabout
-      USE_AUTH: "true"
+      # Override DATABASE_URL to use Docker network hostname
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-feltabout}:${POSTGRES_PASSWORD:-change-me-in-prod}@postgres:5432/${POSTGRES_DB:-feltabout}
+      USE_AUTH: ${USE_AUTH:-false}
       ENABLE_MVP2_BACKEND_BRIDGE: "false"
     ports:
       - "8000:8000"
@@ -46,23 +60,33 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 15s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 20s
 
+  # ─── Frontend (Next.js) ────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: feltabout_frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      # Use Docker internal network hostname for proxy rewrites.
+      # The Next.js standalone build's rewrite proxy needs absolute URLs.
+      NEXT_PUBLIC_API_URL: "http://api:8000"
     ports:
       - "3000:3000"
     depends_on:
       - api
 
+# ─── Persistent Volumes ─────────────────────────────────────────────────────
 volumes:
   postgres_data:
     driver: local
+
+# ─── Network ─────────────────────────────────────────────────────────────────
+networks:
+  default:
+    name: feltabout_network

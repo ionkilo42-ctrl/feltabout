@@ -1568,13 +1568,45 @@ textarea:focus {
 
 /* Intro */
 .session-intro {
-  max-width: 560px;
+  width: 100%;
+  max-width: 780px;
   margin: 3rem auto;
+  padding: 0 1.5rem;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SESSION CONTAINER - Centered layout for desktop
+   ───────────────────────────────────────────────────────────────── */
+
+.session-container {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 2rem);
+}
+
+/* Ensure invite link box uses full width */
+.invite-link-box {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.invite-link-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  font-family: monospace;
+  overflow-wrap: break-word;
 }
 
 .session-intro h2 {
@@ -1821,6 +1853,85 @@ textarea:focus {
   max-width: 400px;
   margin: 0 auto;
 }
+
+/* ── Generating animation ──────────────────────────────────────── */
+.generating-animation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.generating-animation .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.5;
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+
+.generating-animation .dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.generating-animation .dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dot-pulse {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Summary cards (session done state) ─────────────────────────── */
+.summary-card .card-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-quiet);
+  margin-bottom: 10px;
+  letter-spacing: 0.01em;
+}
+
+.summary-card.calm {
+  background: var(--gradient-soft);
+  border-color: var(--accent-border);
+}
+
+.summary-card.calm .card-label {
+  color: var(--accent);
+}
+
+.summary-card.opener {
+  background: white;
+  border-left: 3px solid var(--accent);
+}
+
+.summary-card.opener .card-label {
+  color: var(--accent);
+}
+
+/* ── Output sections (reflection detail) ──────────────────────── */
+.output-section .section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-quiet);
+  margin-bottom: 10px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.output-section.calm {
+  background: var(--gradient-soft);
+  border-radius: 12px;
+  padding: 16px 18px;
+  border-left: 3px solid var(--accent);
+}
+
+.output-section.calm .section-label {
+  color: var(--accent);
+}
 .join-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1951,5 +2062,99 @@ textarea:focus {
   .space-ready-card,
   .join-card {
     padding: 1.5rem;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SESSION PAGE LAYOUT - Desktop fit fixes (760px centered)
+   ───────────────────────────────────────────────────────────────── */
+
+.session-page {
+  min-height: 100vh;
+  width: 100%;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.session-container {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.session-step,
+.session-intro,
+.session-generating,
+.session-error,
+.session-done {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.step-content,
+.step-form {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.step-question {
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.step-textarea,
+.session-step textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 180px;
+  box-sizing: border-box;
+}
+
+.step-actions,
+.session-step .actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.invite-link-box {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .session-page {
+    padding-top: 40px;
+  }
+
+  .session-container {
+    max-width: 760px;
+  }
+}
+
+@media (max-width: 768px) {
+  .session-page {
+    padding: 20px 14px;
+  }
+
+  .session-container,
+  .session-step,
+  .session-intro {
+    max-width: 100%;
+  }
+  
+  .session-step textarea {
+    min-height: 140px;
   }
 }

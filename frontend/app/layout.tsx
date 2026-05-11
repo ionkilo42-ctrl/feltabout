@@ -2,7 +2,7 @@ import './globals.css'
 
 export const metadata = {
   title: 'Feltabout',
-  description: 'AI relationship facilitation for meaningful moments',
+  description: 'AI-guided communication preparation for difficult conversations',
   icons: {
     icon: [
       { url: '/favicon.ico' },

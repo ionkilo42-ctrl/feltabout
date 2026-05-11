@@ -1,52 +1,50 @@
-# backend/
+# Legacy Backend (INACTIVE — MVP 1 Reference Only)
 
-This directory contains legacy/future infrastructure for feltabout mediated-session features.
-It is preserved as technical history and as a possible MVP 2 starting point, but it is not
-the active local API for MVP 1.
+⚠️ **This directory is NOT active for MVP 1 development.**
 
-## Status
+The current active backend is located at `../services/api/`.
 
-**MVP 2+ / experimental.**
+---
 
-This code is not part of the MVP 1 individual reflection vertical slice.
+## What This Directory Contains
 
-## Current MVP 1 service
+This directory contains experimental voice/WebSocket infrastructure that was being developed for a potential future version (MVP 2) with live mediated conversations.
 
-The primary MVP 1 API lives in:
+### Components (NOT Wired in MVP 1)
+- `voice/` — LiveKit integration, STT, TTS (not active)
+- `facilitation/` — Complex facilitation logic (not used)
+- `routers/auth.py` — Alternative auth approach (not used)
+- `main.py` — WebSocket voice room server (not started)
 
-```text
-services/api/
-```
+### Why This Exists
+- Preserved for potential future development
+- Contains reference implementations of:
+  - LiveKit voice room integration
+  - Real-time speech-to-text
+  - Text-to-speech with MiniMax
+  - Complex conflict detection algorithms
 
-That service implements the three-engine architecture:
+### MVP 1 Scope
+For MVP 1, all active code lives in `../services/api/`:
+- ✅ Guided text reflection flow (`/session`)
+- ✅ Auth with register/login
+- ✅ `/reflections` CRUD
+- ✅ `/health` endpoint
+- ✅ WebSocket stub (graceful fallback)
+- ❌ Live voice sessions (future MVP 2)
 
-1. **Reflection Engine** — intake and reflection CRUD
-2. **Safety Engine** — crisis, abuse, coercion, and escalation checks
-3. **Facilitation Engine** — conversation-plan generation
+---
 
-## Do not expand this directory for MVP 1
+## If You Need Voice Sessions (MVP 2+)
 
-During MVP 1, do not build or extend:
+1. This code would need significant cleanup
+2. Requires `LIVEKIT_*` environment variables
+3. Requires database schema migrations
+4. Requires frontend WebSocket wiring to `/ws/{session_id}`
 
-- live voice mediation
-- realtime sessions
-- group facilitation
-- speaker diarization
-- LiveKit orchestration
-- connected relationship sessions
-- multi-party memory
+---
 
-## Future purpose
+## Do NOT Add Code Here
 
-This directory may later support:
-
-- connected async sessions
-- live facilitated conversations
-- voice mediation
-- turn-taking
-- conflict detection
-- group facilitation
-
-## Rule
-
-Before modifying this directory, confirm that the work belongs to MVP 2 or later and does not weaken MVP 1 focus.
+New features should be added to `../services/api/`, not this directory.
+This directory is preserved for historical reference only.

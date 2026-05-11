@@ -66,7 +66,7 @@ function RegisterForm() {
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-intro">
             <h2>Create your private account</h2>
-            <p>Keep your reflections and conversation spaces secure.</p>
+            <p>Keep your account and reflections secure.</p>
           </div>
           <input
             type="text"

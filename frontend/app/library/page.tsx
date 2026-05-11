@@ -104,11 +104,8 @@ export default function LibraryPage() {
           <h1>Library</h1>
         </div>
         <div className="header-actions">
-          <Link href="/reflections/new" className="btn-primary">
+          <Link href="/session" className="btn-primary">
             New reflection
-          </Link>
-          <Link href="/session" className="btn-secondary">
-            Start conversation
           </Link>
         </div>
       </header>
@@ -191,16 +188,12 @@ export default function LibraryPage() {
             <h2>Nothing here yet</h2>
             <p>
               {filter === 'all'
-                ? 'Start a reflection or conversation — your history will live here.'
+                ? 'Start a reflection — your history will live here.'
                 : filter === 'reflection'
                 ? 'Start your first reflection to prepare for an important conversation.'
-                : 'Start a conversation and share the invite link.'}
+                : 'Conversation spaces are coming soon.'}
             </p>
-            {filter === 'all' || filter === 'reflection' ? (
-              <Link href="/reflections/new" className="btn-primary">New reflection</Link>
-            ) : (
-              <Link href="/session" className="btn-primary">Start conversation</Link>
-            )}
+            <Link href="/session" className="btn-primary">New reflection</Link>
           </div>
         )}
 

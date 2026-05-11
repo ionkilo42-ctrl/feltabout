@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
+import { useAuthStore } from '@/store/sessionStore'
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
@@ -55,21 +56,16 @@ const STEP_ORDER: (keyof Answers)[] = ['situation', 'feelings', 'interpretation'
 
 // ─── Auth Helper ──────────────────────────────────────────────────────────────
 
-function getAuth() {
-  if (typeof window === 'undefined') return null
-  const stored = localStorage.getItem('feltabout_session')
-  if (!stored) return null
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return null
-  }
+function useAuth() {
+  const token = useAuthStore(s => s.token)
+  return { token }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SessionPage() {
   const router = useRouter()
+  const { token } = useAuth()
   const [step, setStep] = useState<Step>('intro')
   const [answers, setAnswers] = useState<Answers>({
     situation: '',
@@ -138,8 +134,7 @@ export default function SessionPage() {
     setStep('generating')
     setError(null)
 
-    const auth = getAuth()
-    if (!auth?.token) {
+    if (!token) {
       router.push('/login')
       return
     }
@@ -150,7 +145,7 @@ export default function SessionPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: finalAnswers.situation.slice(0, 80),
@@ -175,7 +170,7 @@ export default function SessionPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.token}`,
+          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -215,7 +210,7 @@ export default function SessionPage() {
 
   if (step === 'intro') {
     return (
-      <main className="app">
+      <div className="session-page">
         <header className="app-header">
           <div className="brand-lockup">
             <Link href="/">
@@ -224,24 +219,30 @@ export default function SessionPage() {
           </div>
         </header>
 
-        <div className="session-intro">
-          <h2>Guided conversation prep</h2>
-          <p>
-            Answer five questions to clarify what you feel, what you need to say,
-            and how to open the conversation with care. Your session will be saved
-            to your library when you&apos;re done.
-          </p>
-          <button className="btn-primary" onClick={handleStart}>
-            Begin session
-          </button>
+        <div className="session-container">
+          <div className="session-intro">
+            <h2>Guided conversation prep</h2>
+            <p>
+              Answer five questions to clarify what you feel, what you need to say,
+              and how to open the conversation with care. Your session will be saved
+              to your library when you're done.
+            </p>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setStep(1)}
+            >
+              I'm ready to start
+            </button>
+          </div>
         </div>
-      </main>
+      </div>
     )
   }
 
   if (step === 'generating') {
     return (
-      <main className="app">
+      <div className="session-page">
         <header className="app-header">
           <div className="brand-lockup">
             <Link href="/">
@@ -250,20 +251,26 @@ export default function SessionPage() {
           </div>
         </header>
 
+        <div className="session-container">
         <div className="session-generating">
           <div className="generating-card">
-            <div className="generating-icon">…</div>
-            <h2>Preparing your conversation plan</h2>
-            <p>This usually takes 10–30 seconds.</p>
+            <div className="generating-animation">
+              <div className="dot"></div>
+              <div className="dot"></div>
+              <div className="dot"></div>
+            </div>
+            <h2>Preparing your reflection</h2>
+            <p>This usually takes a moment.</p>
           </div>
         </div>
-      </main>
+        </div>
+      </div>
     )
   }
 
   if (step === 'error') {
     return (
-      <main className="app">
+      <div className="session-page">
         <header className="app-header">
           <div className="brand-lockup">
             <Link href="/">
@@ -272,14 +279,16 @@ export default function SessionPage() {
           </div>
         </header>
 
-        <div className="session-intro">
-          <h2>Something went wrong</h2>
-          <p className="error-text">{error}</p>
-          <button className="btn-primary" onClick={handleRestart}>
-            Try again
-          </button>
+        <div className="session-container">
+          <div className="session-intro">
+            <h2>Something went wrong</h2>
+            <p className="error-text">{error}</p>
+            <button className="btn-primary" onClick={handleRestart}>
+              Try again
+            </button>
+          </div>
         </div>
-      </main>
+      </div>
     )
   }
 
@@ -293,7 +302,7 @@ export default function SessionPage() {
     ]
 
     return (
-      <main className="app">
+      <div className="session-page">
         <header className="app-header">
           <div className="brand-lockup">
             <Link href="/">
@@ -302,64 +311,66 @@ export default function SessionPage() {
           </div>
         </header>
 
-        <div className="session-done">
-          <div className="done-header">
-            <div className="done-icon">✓</div>
-            <h2>Your conversation prep is ready</h2>
-            <p>This session has been saved to your library.</p>
-          </div>
+        <div className="session-container">
+          <div className="session-done">
+            <div className="done-header">
+              <div className="done-icon">✓</div>
+              <h2>Your conversation prep is ready</h2>
+              <p>This session has been saved to your library.</p>
+            </div>
 
-          {/* Summary Cards */}
-          <div className="summary-cards">
-            {output && output.emotional_summary && (
-              <div className="summary-card">
-                <h3>What you&apos;re feeling</h3>
-                <p>{output.emotional_summary}</p>
-              </div>
-            )}
-            {output && output.needs_summary && (
-              <div className="summary-card">
-                <h3>What you need</h3>
-                <p>{output.needs_summary}</p>
-              </div>
-            )}
-            {output && output.assumptions && (
-              <div className="summary-card">
-                <h3>Assumptions to check</h3>
-                <p>{output.assumptions}</p>
-              </div>
-            )}
-            {output && output.reframe && (
-              <div className="summary-card">
-                <h3>A calmer frame</h3>
-                <p>{output.reframe}</p>
-              </div>
-            )}
-            {output && output.conversation_opener && (
-              <div className="summary-card opener">
-                <h3>A way to open</h3>
-                <p>{output.conversation_opener}</p>
-              </div>
-            )}
-            {output && output.followup_questions && (
-              <div className="summary-card">
-                <h3>Questions to consider</h3>
-                <p>{output.followup_questions}</p>
-              </div>
-            )}
-          </div>
+            {/* Summary Cards */}
+            <div className="summary-cards">
+              {output && output.emotional_summary && (
+                <div className="summary-card calm">
+                  <div className="card-label">What you're carrying</div>
+                  <p>{output.emotional_summary}</p>
+                </div>
+              )}
+              {output && output.needs_summary && (
+                <div className="summary-card calm">
+                  <div className="card-label">What you need</div>
+                  <p>{output.needs_summary}</p>
+                </div>
+              )}
+              {output && output.assumptions && (
+                <div className="summary-card">
+                  <div className="card-label">Assumptions to check</div>
+                  <p>{output.assumptions}</p>
+                </div>
+              )}
+              {output && output.reframe && (
+                <div className="summary-card">
+                  <div className="card-label">A clearer frame</div>
+                  <p>{output.reframe}</p>
+                </div>
+              )}
+              {output && output.conversation_opener && (
+                <div className="summary-card opener">
+                  <div className="card-label">A way to begin</div>
+                  <p>{output.conversation_opener}</p>
+                </div>
+              )}
+              {output && output.followup_questions && (
+                <div className="summary-card">
+                  <div className="card-label">Questions to sit with</div>
+                  <p>{output.followup_questions}</p>
+                </div>
+              )}
+            </div>
 
-          {/* CTA Buttons */}
-          <div className="done-actions">
-            <Link href="/library" className="btn-primary">
-              View in library
-            </Link>
-            <button className="btn-secondary" onClick={handleRestart}>
-              Start another session
-            </button>
+            {/* CTA Buttons */}
+            <div className="done-actions">
+              <Link href="/library" className="btn-primary">
+                View in library
+              </Link>
+              <button className="btn-secondary" onClick={handleRestart}>
+                Start another session
+              </button>
+            </div>
           </div>
         </div>
-      </main>
+      </div>
     )
   }
 
@@ -370,7 +381,7 @@ export default function SessionPage() {
   const question = QUESTIONS[currentField]
 
   return (
-    <main className="app">
+    <div className="session-page">
       <header className="app-header">
         <div className="brand-lockup">
           <Link href="/">
@@ -379,53 +390,55 @@ export default function SessionPage() {
         </div>
       </header>
 
-      <div className="session-step">
-        {/* Progress */}
-        <div className="step-progress">
-          <div className="step-dots">
-            {STEP_ORDER.map((_, i) => (
-              <span
-                key={i}
-                className={`step-dot ${i < currentStepIndex ? 'done' : i === currentStepIndex - 1 ? 'current' : ''}`}
-              />
-            ))}
+      <div className="session-container">
+        <div className="session-step">
+          {/* Progress */}
+          <div className="step-progress">
+            <div className="step-dots">
+              {STEP_ORDER.map((_, i) => (
+                <span
+                  key={i}
+                  className={`step-dot ${i < currentStepIndex ? 'done' : i === currentStepIndex - 1 ? 'current' : ''}`}
+                />
+              ))}
+            </div>
+            <span className="step-count">{currentStepIndex} of {totalSteps}</span>
           </div>
-          <span className="step-count">{currentStepIndex} of {totalSteps}</span>
-        </div>
 
-        {/* Prompt */}
-        <div className="step-prompt">
-          <h2>{question.prompt}</h2>
-        </div>
+          {/* Prompt */}
+          <div className="step-prompt">
+            <h2>{question.prompt}</h2>
+          </div>
 
-        {/* Input */}
-        <div className="step-input-area">
-          <textarea
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={question.placeholder}
-            rows={4}
-            autoFocus
-          />
-        </div>
+          {/* Input */}
+          <div className="step-input-area">
+            <textarea
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={question.placeholder}
+              rows={4}
+              autoFocus
+            />
+          </div>
 
-        {/* Continue button */}
-        <div className="step-actions">
-          <button
-            className="btn-primary"
-            onClick={handleNext}
-            disabled={!inputValue.trim()}
-          >
-            {currentStepIndex < totalSteps ? 'Continue' : 'Generate plan'}
-          </button>
-          {currentStepIndex > 1 && (
-            <button className="btn-ghost" onClick={handleRestart}>
-              Start over
+          {/* Continue button */}
+          <div className="step-actions">
+            <button
+              className="btn-primary"
+              onClick={handleNext}
+              disabled={!inputValue.trim()}
+            >
+              {currentStepIndex < totalSteps ? 'Continue' : 'Generate plan'}
             </button>
-          )}
+            {currentStepIndex > 1 && (
+              <button className="btn-ghost" onClick={handleRestart}>
+                Start over
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

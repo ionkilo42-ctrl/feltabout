@@ -40,13 +40,21 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """Initialize database tables and ensure dev user exists."""
-    from app.models.base import Base
+    from app.models.base import Base  # Imports v1 models' Base
     from app.models.user import User
     from sqlalchemy import select
     
+    # Import v2 models to register them with Base.metadata
+    from app.models.v2 import (
+        Feeling, Need, Entity, Topic, Memory, Guide, PublicEntityAggregate,
+        feeling_needs, feeling_entities, feeling_topics
+    )
+    
+    # Create all tables (both v1 and v2 share the same Base)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
+    # Ensure dev user exists
     async with async_session_factory() as session:
         result = await session.execute(select(User).where(User.id == "dev-user-001"))
         if not result.scalar_one_or_none():
