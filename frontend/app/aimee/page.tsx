@@ -55,6 +55,7 @@ export default function AimeePage() {
   const router = useRouter()
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const hasHydratedScrollRef = useRef(false)
+  const currentRequestIdRef = useRef(0)
   
   // Chat state - initialize with empty time for SSR hydration safety
   const [messages, setMessages] = useState<Array<{
@@ -138,6 +139,8 @@ export default function AimeePage() {
     if (!inputText.trim() || loading || saving) return
     
     const text = inputText.trim()
+    const requestId = currentRequestIdRef.current + 1
+    currentRequestIdRef.current = requestId
     setInputText('')
     setSourceText(text)
     
@@ -164,7 +167,10 @@ export default function AimeePage() {
 
       // 1. First: get a real conversational Aimee reply
       const chatResponse = await chatWithAimee(text, conversationContext)
+      if (currentRequestIdRef.current !== requestId) return
+
       addMessage('aimee', chatResponse.reply)
+      setLoading(false)
 
       // Handle safety flagged from chat
       if (chatResponse.safety_status === 'flagged') {
@@ -176,6 +182,7 @@ export default function AimeePage() {
         // 2. Second: quietly try extraction so the memory card can still work
         try {
           const extractionResponse = await extractWithAimee(text)
+          if (currentRequestIdRef.current !== requestId) return
 
           if (extractionResponse.safety_status === 'flagged') {
             setSafetyFlagged(true)
@@ -192,17 +199,21 @@ export default function AimeePage() {
             setShowCard(false)
           }
         } catch (extractErr) {
+          if (currentRequestIdRef.current !== requestId) return
           console.warn('Extraction failed, but chat succeeded:', extractErr)
           setExtraction(null)
           setShowCard(false)
         }
       }
     } catch (err) {
+      if (currentRequestIdRef.current !== requestId) return
       console.error('Aimee chat error:', err)
       setError('Aimee had trouble responding. Please try again.')
       addMessage('aimee', "I'm having trouble responding right now. Can you try again in a moment?")
     } finally {
-      setLoading(false)
+      if (currentRequestIdRef.current === requestId) {
+        setLoading(false)
+      }
     }
   }
   
