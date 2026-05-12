@@ -6,8 +6,9 @@ export type ReflectionStatus = "draft" | "completed" | "archived";
 export interface User {
   id: string;
   email: string;
-  display_name: string;
-  created_at: string;
+  name?: string;
+  display_name?: string;
+  created_at?: string;
 }
 
 export interface Reflection {
@@ -24,11 +25,13 @@ export interface Reflection {
   status: ReflectionStatus;
   created_at: string;
   updated_at: string;
+  output?: ReflectionOutput | null;
 }
 
 export interface ReflectionOutput {
   id: string;
   reflection_id: string;
+  simple_opener?: string;
   emotional_summary: string;
   needs_summary: string;
   assumptions: string;
@@ -82,4 +85,8 @@ export interface CrisisResponse {
   severity: "none" | "low" | "medium" | "high" | "critical";
   message: string;
   resources: string[];
+}
+
+export interface GenerateResponse extends CrisisResponse {
+  output: ReflectionOutput | null;
 }

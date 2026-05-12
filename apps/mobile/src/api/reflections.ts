@@ -5,6 +5,7 @@ import type {
   GenerateResponse,
   ReflectionFeedback,
   CreateFeedbackRequest,
+  UpdateFeedbackRequest,
 } from "../types";
 import { API_URL, apiHeaders, readError } from "./client";
 
@@ -104,7 +105,7 @@ export async function getFeedback(
 
 export async function updateFeedback(
   reflectionId: string,
-  data: { conversation_went_better?: number }
+  data: UpdateFeedbackRequest
 ): Promise<ReflectionFeedback> {
   const resp = await fetch(`${API_URL}/reflections/${reflectionId}/feedback`, {
     method: "PATCH",

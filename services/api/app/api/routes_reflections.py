@@ -12,9 +12,10 @@ Endpoints:
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes_auth import require_user
 from app.db.session import get_db
 from app.schemas.reflection import (
     CreateReflectionRequest,
@@ -32,41 +33,12 @@ from app.services import (
     FacilitationService,
     ExtractionService,
 )
-from app.services.auth_service import decode_token
 from app.services.safety_service import check_safety, build_crisis_response
 
 
 # ─── Router ────────────────────────────────────────────────────────────────────
 
 router = APIRouter(prefix="/reflections", tags=["reflections"])
-
-
-# ─── Auth Dependency ───────────────────────────────────────────────────────────
-
-async def get_current_user(authorization: str | None = Header(default=None)) -> dict | None:
-    """
-    Returns user payload. For MVP 1, always returns a dev user.
-    In MVP 2, integrate Clerk or Supabase auth.
-    """
-    USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
-    
-    if USE_AUTH:
-        if not authorization or not authorization.startswith("Bearer "):
-            return None
-        token = authorization.split("Bearer ", 1)[1]
-        payload = decode_token(token)
-        if not payload or payload.get("type") != "session":
-            return None
-        return payload
-    
-    # Dev mode: return a dev user
-    return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}
-
-
-async def require_user(current_user: dict = Depends(get_current_user)) -> dict:
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return current_user
 
 
 # ─── Routes ────────────────────────────────────────────────────────────────────
@@ -145,7 +117,7 @@ async def generate_plan(
     
     Pipeline:
     1. Safety check (Safety Engine) — gates all generation
-    2. Emotional analysis (Extraction Engine) — internal, not user-facing
+    2. Emotional analysis (internal extraction stage) — not user-facing
     3. Conversation planning (Facilitation Engine) — uses analysis context
     4. FeelFlow event logging — for timeline visualization
     
@@ -188,7 +160,7 @@ async def generate_plan(
         )
         return build_crisis_response(safety_result.severity)
     
-    # ── Extraction (Extraction Engine) ─────────────────────────────────────────
+    # ── Internal extraction stage ──────────────────────────────────────────────
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
     OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     

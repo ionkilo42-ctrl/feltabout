@@ -8,7 +8,9 @@ The platform includes:
 
 - **Individual reflection** — A guided process to clarify emotions, needs, assumptions, and a useful next message.
 - **Conversation preparation** — A generated plan with calmer language, questions, repair-oriented phrasing, and things to avoid saying.
-- **Shared conversation spaces** — Optional invite links for preparing with another person. Live voice mediation remains future work.
+- **Reflection library** — Saved reflections and follow-up feedback so users can return to what helped.
+
+Shared conversation spaces and live mediation code exist as future/experimental surfaces. They are not the MVP 1 product path.
 
 Feltabout is for reflection and communication support. It is not therapy, medical care, diagnosis, or crisis support.
 
@@ -257,6 +259,10 @@ python -m pytest tests -q
 # Frontend build
 cd frontend
 pnpm build
+
+# Mobile typecheck
+cd apps/mobile
+npm run typecheck
 ```
 
 ---
@@ -274,11 +280,12 @@ pnpm build
 
 **Active Backend**: `services/api/` — FastAPI with async SQLAlchemy
 
-**Four-Engine Model**:
+**Three-Engine Model**:
 1. **Reflection Engine** — Intake and emotional clarification
-2. **Extraction Engine** — Emotional analysis and core memory detection
-3. **Facilitation Engine** — Reframing and conversation preparation
-4. **Safety Engine** — Crisis, abuse, coercion, and escalation handling
+2. **Facilitation Engine** — Reframing and conversation preparation
+3. **Safety Engine** — Crisis, abuse, coercion, and escalation handling
+
+Extraction is an internal stage inside the reflection pipeline, not a separate product engine.
 
 All AI generation passes through Safety Engine first.
 

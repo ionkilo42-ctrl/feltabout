@@ -146,12 +146,29 @@ When facilitated sessions are added:
 
 ### MVP 1 (Current)
 
-- Individual reflection wizard
-- Guided intake flow (7 prompts)
-- AI-generated conversation plan
-- Reflection history
-- Safety precheck
-- Crisis response routing
+**Simplified Core Loop:**
+- Single messy input field: "Tell me what's going on. Say it messy."
+- Optional: "What do you want from this conversation?"
+- AI generates one clear thing to say (simple_opener)
+- Full analysis (emotions, needs, assumptions) hidden behind expandable "Details"
+- Follow-up: "How did it go?" with options (Better/About same/Worse/I didn't have it)
+- Safety precheck and crisis response routing (internal, not user-facing)
+
+**Input Philosophy:**
+- Users should NOT feel like they're filling out a therapy worksheet
+- Internal extraction (emotion, needs, assumption detection) happens behind the scenes
+- All machinery stays hidden from primary UX
+
+**Output Philosophy:**
+- First thing shown: ONE strong, usable message/opener
+- NOT an 8-section summary dumped on the user
+- Additional context available in expandable details
+- "Human-sounding" output, not ChatGPT or therapist tone
+
+**Generation Prompt Style:**
+- AI acts as a "sharp communication editor" not a therapist
+- Sound like a real human, not a greeting card or corporate memo
+- Avoid therapy language, over-validation, promises, polish
 
 ### MVP 2+
 

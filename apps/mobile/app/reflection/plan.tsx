@@ -18,6 +18,15 @@ import { AuthGate } from "../../src/auth/AuthGate";
 import { useAuth } from "../../src/auth/AuthContext";
 import { colors, radii, shadow } from "../../src/styles/theme";
 
+// ─── How Did It Go Options ────────────────────────────────────────────────────
+
+const HOW_DID_IT_GO_OPTIONS = [
+  { label: "Better than expected", value: 1 },
+  { label: "About the same", value: 2 },
+  { label: "Worse", value: 3 },
+  { label: "I didn't have the conversation", value: 4 },
+];
+
 // ─── Score Option ─────────────────────────────────────────────────────────────
 
 function ScoreOption({
@@ -55,6 +64,9 @@ export default function PlanScreen() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
+  // Show details toggle
+  const [showDetails, setShowDetails] = useState(false);
+
   // Feedback state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [preparedScore, setPreparedScore] = useState(0);
@@ -62,6 +74,11 @@ export default function PlanScreen() {
   const [helpfulText, setHelpfulText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  // "How did it go" state (for follow-up)
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [howDidItGo, setHowDidItGo] = useState(0);
+  const [whatHappened, setWhatHappened] = useState("");
 
   useEffect(() => {
     if (!reflectionId || authLoading || !isAuthenticated) return;
@@ -127,11 +144,29 @@ export default function PlanScreen() {
     }
   }
 
+  async function handleSubmitFollowup() {
+    if (!reflectionId) return;
+    setSubmitting(true);
+    try {
+      await apiUpdateFeedback(reflectionId, {
+        how_did_it_go: howDidItGo,
+        what_happened: whatHappened,
+      });
+      setShowFollowupModal(false);
+      router.replace("/(tabs)/reflections");
+    } catch {
+      // Silently fail
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function handleDone() {
     if (!feedbackSubmitted) {
       setShowFeedbackModal(true);
     } else {
-      router.replace("/(tabs)/reflections");
+      // Show follow-up: "How did it go?"
+      setShowFollowupModal(true);
     }
   }
 
@@ -150,7 +185,6 @@ export default function PlanScreen() {
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.text} />
         <Text style={styles.generatingText}>Loading reflection</Text>
-        <Text style={styles.generatingHint}>Checking whether a plan already exists.</Text>
       </View>
     );
   }
@@ -202,22 +236,10 @@ export default function PlanScreen() {
       <SafeAreaView style={styles.container} edges={["bottom"]}>
         <View style={styles.preGenerate}>
           <Text style={styles.preTitle}>Ready to prepare?</Text>
-          <Text style={styles.preText}>Based on your reflection, feltabout will help you:</Text>
-          <View style={styles.preList}>
-            {[
-              "Summarize your emotional landscape",
-              "Clarify your underlying needs",
-              "Identify possible assumptions",
-              "Suggest a calm conversation opener",
-              "Offer follow-up questions",
-              "Provide a repair-oriented closing",
-            ].map((item, i) => (
-              <Text key={i} style={styles.preListItem}>✓ {item}</Text>
-            ))}
-          </View>
+          <Text style={styles.preText}>Tell me what happened, and I'll help you find the right words.</Text>
           <GradientButton label="Generate plan" onPress={handleGenerate} />
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.reviewText}>← Review my answers</Text>
+            <Text style={styles.reviewText}>← Review my reflection</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -229,8 +251,8 @@ export default function PlanScreen() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#2D2D2D" />
-        <Text style={styles.generatingText}>Preparing your plan...</Text>
-        <Text style={styles.generatingHint}>This may take a few moments.</Text>
+        <Text style={styles.generatingText}>Finding the right words</Text>
+        <Text style={styles.generatingHint}>One moment...</Text>
       </View>
     );
   }
@@ -239,37 +261,50 @@ export default function PlanScreen() {
   const output = result?.output;
   if (!output) return null;
 
-  const sections: { title: string; content: string; icon: string }[] = [
-    { title: "Emotional Summary", content: output.emotional_summary, icon: "◉" },
-    { title: "Your Needs", content: output.needs_summary, icon: "◉" },
-    { title: "Possible Assumptions", content: output.assumptions, icon: "◉" },
-    { title: "Gentle Reframe", content: output.reframe, icon: "◉" },
-    { title: "What to Avoid", content: output.avoid_saying, icon: "◉" },
-    { title: "Conversation Opener", content: output.conversation_opener, icon: "◉" },
-    { title: "Follow-Up Questions", content: output.followup_questions, icon: "◉" },
-    { title: "Repair Statement", content: output.repair_statement, icon: "◉" },
-  ];
+  // Primary output: simple_opener
+  const simpleOpener = output.simple_opener || output.conversation_opener || "";
+
+  // Full details (collapsible)
+  const sections = [
+    { title: "What you're carrying", content: output.emotional_summary, key: "emotional_summary" },
+    { title: "What you need", content: output.needs_summary, key: "needs_summary" },
+    { title: "Assumptions to check", content: output.assumptions, key: "assumptions" },
+    { title: "A clearer frame", content: output.reframe, key: "reframe" },
+    { title: "What to avoid", content: output.avoid_saying, key: "avoid_saying" },
+    { title: "Follow-up questions", content: output.followup_questions, key: "followup_questions" },
+    { title: "Closing statement", content: output.repair_statement, key: "repair_statement" },
+  ].filter(s => s.content);
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView contentContainerStyle={styles.planContent}>
-        <View style={styles.planHeader}>
-          <Text style={styles.planTitle}>Your Conversation Plan</Text>
-          <Text style={styles.planSubtitle}>Use this as a guide — adapt it to your own voice.</Text>
-        </View>
+        {/* Primary opener */}
+        {simpleOpener && (
+          <View style={styles.openerCard}>
+            <Text style={styles.openerLabel}>One thing you could say</Text>
+            <Text style={styles.openerText}>{simpleOpener}</Text>
+          </View>
+        )}
 
-        {sections.map((section) =>
-          section.content ? (
-            <View key={section.title} style={styles.section}>
-              <Text style={styles.sectionIcon}>{section.icon}</Text>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              <View style={styles.sectionBody}>
-                {formatPlanContent(section.content).map((line, index) => (
-                  <Text key={`${section.title}-${index}`} style={styles.sectionContent}>{line}</Text>
-                ))}
+        {/* Expandable details */}
+        <TouchableOpacity
+          style={styles.detailsToggle}
+          onPress={() => setShowDetails(!showDetails)}
+        >
+          <Text style={styles.detailsToggleText}>
+            {showDetails ? "Hide details" : "See full details"}
+          </Text>
+        </TouchableOpacity>
+
+        {showDetails && (
+          <View style={styles.detailsSection}>
+            {sections.map((section) => (
+              <View key={section.key} style={styles.section}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <Text style={styles.sectionContent}>{section.content}</Text>
               </View>
-            </View>
-          ) : null
+            ))}
+          </View>
         )}
       </ScrollView>
 
@@ -280,7 +315,7 @@ export default function PlanScreen() {
         />
       </View>
 
-      {/* Feedback Modal */}
+      {/* Initial Feedback Modal */}
       <Modal
         visible={showFeedbackModal}
         animationType="slide"
@@ -292,7 +327,6 @@ export default function PlanScreen() {
             <Text style={styles.modalTitle}>Before you go</Text>
             <Text style={styles.modalSubtitle}>Quick feedback to help us improve.</Text>
 
-            {/* Question 1 */}
             <Text style={styles.questionText}>Do you feel more prepared for the conversation?</Text>
             <View style={styles.scoreRow}>
               <ScoreOption label="No" value={1} selected={preparedScore === 1} onPress={() => setPreparedScore(1)} />
@@ -300,7 +334,6 @@ export default function PlanScreen() {
               <ScoreOption label="Yes" value={3} selected={preparedScore === 3} onPress={() => setPreparedScore(3)} />
             </View>
 
-            {/* Question 2 */}
             <Text style={styles.questionText}>Do you feel less reactive than before?</Text>
             <View style={styles.scoreRow}>
               <ScoreOption label="No" value={1} selected={reactiveScore === 1} onPress={() => setReactiveScore(1)} />
@@ -308,7 +341,6 @@ export default function PlanScreen() {
               <ScoreOption label="Yes" value={3} selected={reactiveScore === 3} onPress={() => setReactiveScore(3)} />
             </View>
 
-            {/* Optional text */}
             <Text style={styles.questionText}>What was most helpful? (optional)</Text>
             <TextInput
               style={styles.textInput}
@@ -319,13 +351,12 @@ export default function PlanScreen() {
               multiline
             />
 
-            {/* Actions */}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.skipButton}
                 onPress={() => {
                   setShowFeedbackModal(false);
-                  router.replace("/(tabs)/reflections");
+                  setShowFollowupModal(true);
                 }}
               >
                 <Text style={styles.skipText}>Skip</Text>
@@ -334,6 +365,70 @@ export default function PlanScreen() {
                 label="Submit"
                 onPress={handleSubmitFeedback}
                 disabled={!preparedScore || !reactiveScore || submitting}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Follow-up: "How did it go?" Modal */}
+      <Modal
+        visible={showFollowupModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowFollowupModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>How did it go?</Text>
+            <Text style={styles.modalSubtitle}>After you had the conversation, how did it go?</Text>
+
+            <View style={styles.howDidItGoOptions}>
+              {HOW_DID_IT_GO_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.howDidItGoOption,
+                    howDidItGo === option.value && styles.howDidItGoOptionSelected,
+                  ]}
+                  onPress={() => setHowDidItGo(option.value)}
+                >
+                  <Text
+                    style={[
+                      styles.howDidItGoOptionText,
+                      howDidItGo === option.value && styles.howDidItGoOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.questionText}>What happened? (optional)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Tell me how it went..."
+              placeholderTextColor={colors.textMuted}
+              value={whatHappened}
+              onChangeText={setWhatHappened}
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={() => {
+                  setShowFollowupModal(false);
+                  router.replace("/(tabs)/reflections");
+                }}
+              >
+                <Text style={styles.skipText}>Skip</Text>
+              </TouchableOpacity>
+              <GradientButton
+                label="Done"
+                onPress={handleSubmitFollowup}
+                disabled={submitting}
               />
             </View>
           </View>
@@ -368,18 +463,21 @@ const styles = StyleSheet.create({
   preGenerate: { flex: 1, justifyContent: "center", padding: 32 },
   preTitle: { fontSize: 28, fontWeight: "700", color: colors.text, marginBottom: 12 },
   preText: { fontSize: 16, color: colors.textMuted, marginBottom: 20, lineHeight: 24 },
-  preList: { gap: 10, marginBottom: 32 },
-  preListItem: { fontSize: 15, color: colors.text, lineHeight: 22 },
   reviewText: { textAlign: "center", color: colors.textMuted, fontSize: 15, marginTop: 20, fontWeight: "600" },
   planContent: { padding: 24, paddingBottom: 100 },
-  planHeader: { marginBottom: 28 },
-  planTitle: { fontSize: 27, fontWeight: "700", color: colors.text, marginBottom: 8, letterSpacing: 0 },
-  planSubtitle: { fontSize: 15, color: colors.textMuted, lineHeight: 23 },
-  section: { marginBottom: 16, backgroundColor: colors.surfaceSoft, padding: 18, borderRadius: radii.card, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
-  sectionIcon: { color: colors.accent, fontSize: 18, marginBottom: 8 },
+  // Primary opener
+  openerCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 22, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+  openerLabel: { fontSize: 12, fontWeight: "700", color: colors.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 },
+  openerText: { fontSize: 20, fontWeight: "500", color: colors.text, lineHeight: 30 },
+  // Details toggle
+  detailsToggle: { paddingVertical: 12, marginBottom: 8 },
+  detailsToggleText: { fontSize: 15, color: colors.textMuted, fontWeight: "600" },
+  // Details section
+  detailsSection: { marginTop: 8 },
+  section: { backgroundColor: colors.surfaceSoft, padding: 16, borderRadius: radii.card, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", marginBottom: 12, ...shadow.card },
   sectionTitle: { fontSize: 12, fontWeight: "700", color: colors.textQuiet, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
-  sectionBody: { gap: 8 },
-  sectionContent: { fontSize: 16, color: colors.text, lineHeight: 25 },
+  sectionContent: { fontSize: 15, color: colors.text, lineHeight: 24 },
+  // Footer
   planFooter: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
@@ -396,4 +494,10 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 28, gap: 16 },
   skipButton: { paddingVertical: 16 },
   skipText: { fontSize: 16, color: colors.textMuted, fontWeight: "600" },
+  // How did it go options
+  howDidItGoOptions: { gap: 10, marginBottom: 20 },
+  howDidItGoOption: { paddingVertical: 14, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  howDidItGoOptionSelected: { borderColor: colors.accent, backgroundColor: "rgba(180,100,50,0.08)" },
+  howDidItGoOptionText: { fontSize: 15, fontWeight: "600", color: colors.textMuted, textAlign: "center" },
+  howDidItGoOptionTextSelected: { color: colors.accent },
 });

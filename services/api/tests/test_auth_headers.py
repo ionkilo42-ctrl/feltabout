@@ -150,6 +150,44 @@ async def test_reflections_use_authenticated_bearer_user(client):
 
 
 @pytest.mark.asyncio
+async def test_admin_safety_events_uses_bearer_auth_and_serializes_events(client):
+    auth = await register_user(client, email="admin-safety@example.com")
+    headers = {"Authorization": f"Bearer {auth['token']}"}
+
+    create_response = await client.post(
+        "/reflections",
+        headers=headers,
+        json={
+            "title": "Safety event check",
+            "situation": "I've been thinking about ending it all.",
+            "feelings": "Hopeless",
+            "interpretation": "",
+            "needs": "",
+            "fears": "",
+            "desired_outcome": "",
+            "message_draft": "",
+        },
+    )
+    assert create_response.status_code == 201
+    reflection_id = create_response.json()["id"]
+
+    generate_response = await client.post(
+        f"/reflections/{reflection_id}/generate",
+        headers=headers,
+    )
+    assert generate_response.status_code == 200
+    assert generate_response.json()["is_crisis"] is True
+
+    admin_response = await client.get("/admin/analytics/safety-events", headers=headers)
+    assert admin_response.status_code == 200
+    events = admin_response.json()
+    assert events
+    assert events[0]["event_type"] == "crisis_precheck"
+    assert events[0]["severity"] == "critical"
+    assert "model_response" in events[0]
+
+
+@pytest.mark.asyncio
 async def test_auth_me_rejects_conversation_scoped_token(client):
     token = create_conversation_token(
         user_id="user-123",

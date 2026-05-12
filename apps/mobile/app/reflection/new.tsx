@@ -12,7 +12,6 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { WIZARD_STEPS } from "../../src/types";
 import { createReflection, getReflection, updateReflection } from "../../src/api/reflections";
 import type { CreateReflectionRequest } from "../../src/types";
 import { GradientButton } from "../../src/components/GradientButton";
@@ -24,14 +23,13 @@ export default function NewReflectionScreen() {
   const router = useRouter();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { loading: authLoading, isAuthenticated } = useAuth();
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [loadError, setLoadError] = useState("");
 
-  const current = WIZARD_STEPS[step];
-  const value = answers[current.key] ?? "";
+  // Simplified: two fields only
+  const [situation, setSituation] = useState("");
+  const [desiredOutcome, setDesiredOutcome] = useState("");
 
   useEffect(() => {
     if (!edit || authLoading || !isAuthenticated) return;
@@ -39,15 +37,8 @@ export default function NewReflectionScreen() {
     setLoadError("");
     getReflection(edit)
       .then((reflection) => {
-        setAnswers({
-          situation: reflection.situation,
-          feelings: reflection.feelings,
-          interpretation: reflection.interpretation,
-          needs: reflection.needs,
-          fears: reflection.fears,
-          desired_outcome: reflection.desired_outcome,
-          message_draft: reflection.message_draft,
-        });
+        setSituation(reflection.situation || "");
+        setDesiredOutcome(reflection.desired_outcome || "");
       })
       .catch(() => setLoadError("Could not load this reflection for editing. Check the API connection and try again."))
       .finally(() => setLoadingEdit(false));
@@ -59,15 +50,8 @@ export default function NewReflectionScreen() {
     setLoadError("");
     try {
       const reflection = await getReflection(edit);
-      setAnswers({
-        situation: reflection.situation,
-        feelings: reflection.feelings,
-        interpretation: reflection.interpretation,
-        needs: reflection.needs,
-        fears: reflection.fears,
-        desired_outcome: reflection.desired_outcome,
-        message_draft: reflection.message_draft,
-      });
+      setSituation(reflection.situation || "");
+      setDesiredOutcome(reflection.desired_outcome || "");
     } catch {
       setLoadError("Could not load this reflection for editing. Check the API connection and try again.");
     } finally {
@@ -75,39 +59,23 @@ export default function NewReflectionScreen() {
     }
   }
 
-  function handleNext() {
-    if (!value.trim() && step < WIZARD_STEPS.length - 1) {
-      // Allow empty for now (MVP), but don't advance on empty final step
-    }
-    setAnswers((prev) => ({ ...prev, [current.key]: value }));
-    if (step < WIZARD_STEPS.length - 1) {
-      setStep((s) => s + 1);
-    }
-  }
+  async function handleSubmit() {
+    const trimmedSituation = situation.trim();
+    if (!trimmedSituation) return;
 
-  function handleBack() {
-    setAnswers((prev) => ({ ...prev, [current.key]: value }));
-    if (step > 0) setStep((s) => s - 1);
-  }
-
-  async function handleSave() {
-    const nextAnswers = { ...answers, [current.key]: value };
-    setAnswers(nextAnswers);
     setSaving(true);
     try {
-      const title =
-        nextAnswers.situation?.slice(0, 40) ||
-        value.slice(0, 40) ||
-        "Untitled Reflection";
+      const title = trimmedSituation.slice(0, 80) || "Untitled Reflection";
       const data: CreateReflectionRequest = {
         title,
-        situation: nextAnswers.situation ?? "",
-        feelings: nextAnswers.feelings ?? "",
-        interpretation: nextAnswers.interpretation ?? "",
-        needs: nextAnswers.needs ?? "",
-        fears: nextAnswers.fears ?? "",
-        desired_outcome: nextAnswers.desired_outcome ?? "",
-        message_draft: nextAnswers.message_draft ?? "",
+        situation: trimmedSituation,
+        desired_outcome: desiredOutcome.trim(),
+        // Legacy fields kept empty for simplified input
+        feelings: "",
+        interpretation: "",
+        needs: "",
+        fears: "",
+        message_draft: "",
       };
       const reflection = edit
         ? await updateReflection(edit, data)
@@ -119,9 +87,6 @@ export default function NewReflectionScreen() {
       setSaving(false);
     }
   }
-
-  const isLast = step === WIZARD_STEPS.length - 1;
-  const progress = (step + 1) / WIZARD_STEPS.length;
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -135,8 +100,8 @@ export default function NewReflectionScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["bottom"]}>
         <View style={styles.stateCard}>
-          <Text style={styles.stateTitle}>Opening your answers</Text>
-          <Text style={styles.stateText}>Loading the saved reflection so you can adjust it.</Text>
+          <Text style={styles.stateTitle}>Opening your reflection</Text>
+          <Text style={styles.stateText}>Loading your saved work.</Text>
         </View>
       </SafeAreaView>
     );
@@ -162,51 +127,49 @@ export default function NewReflectionScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        {/* Progress bar */}
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-        </View>
-
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.promptCard}>
-            <Text style={styles.stepLabel}>
-              {step + 1} of {WIZARD_STEPS.length}
-            </Text>
-            <Text style={styles.question}>{current.question}</Text>
-            <Text style={styles.hint}>{current.hint}</Text>
+          <View style={styles.headerCard}>
+            <Text style={styles.mainPrompt}>Tell me what's going on.</Text>
+            <Text style={styles.subPrompt}>Say it messy. We'll find the clarity.</Text>
+          </View>
 
+          {/* Main input */}
+          <View style={styles.inputCard}>
             <TextInput
-              style={styles.textInput}
-              value={value}
-              onChangeText={(text) => {
-                const next = { ...answers };
-                next[current.key] = text;
-                setAnswers(next);
-              }}
+              style={styles.mainInput}
+              value={situation}
+              onChangeText={setSituation}
               multiline
-              placeholder={current.hint}
+              placeholder="Something happened, or it's been building up. Just get it out..."
               placeholderTextColor="#A3A3A3"
               textAlignVertical="top"
               autoFocus
             />
           </View>
+
+          {/* Optional: what do you want */}
+          <View style={styles.optionalCard}>
+            <Text style={styles.optionalLabel}>What do you want from this conversation? (optional)</Text>
+            <TextInput
+              style={styles.secondaryInput}
+              value={desiredOutcome}
+              onChangeText={setDesiredOutcome}
+              multiline
+              placeholder="e.g. I want us to understand each other better, not fix everything tonight"
+              placeholderTextColor="#A3A3A3"
+              textAlignVertical="top"
+            />
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          {step > 0 && (
-            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
-          )}
-          <View style={{ flex: 1 }} />
           <GradientButton
-            label={saving ? "Saving..." : isLast ? "Save and review" : "Next"}
-            onPress={isLast ? handleSave : handleNext}
-            disabled={saving}
-            style={styles.nextButton}
+            label={saving ? "Finding the words..." : "Find the words"}
+            onPress={handleSubmit}
+            disabled={saving || !situation.trim()}
           />
         </View>
       </KeyboardAvoidingView>
@@ -216,29 +179,47 @@ export default function NewReflectionScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  progressBar: { height: 5, backgroundColor: colors.border, width: "100%" },
-  progressFill: { height: "100%", backgroundColor: colors.accent, borderTopRightRadius: 999, borderBottomRightRadius: 999 },
-  scrollContent: { padding: 24, flexGrow: 1, justifyContent: "center" },
-  promptCard: { backgroundColor: colors.surfaceSoft, borderRadius: radii.card, padding: 22, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
-  stepLabel: { fontSize: 13, color: colors.textQuiet, marginBottom: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
-  question: { fontSize: 27, fontWeight: "700", color: colors.text, marginBottom: 10, lineHeight: 36, letterSpacing: 0 },
-  hint: { fontSize: 15, color: colors.textMuted, marginBottom: 24, lineHeight: 23 },
-  textInput: {
+  scrollContent: { padding: 24, paddingBottom: 120 },
+  headerCard: { marginBottom: 20 },
+  mainPrompt: { fontSize: 28, fontWeight: "700", color: colors.text, marginBottom: 8, lineHeight: 36 },
+  subPrompt: { fontSize: 16, color: colors.textMuted, lineHeight: 24 },
+  inputCard: { marginBottom: 20 },
+  mainInput: {
     backgroundColor: colors.surface,
     borderRadius: 22,
+    padding: 18,
+    fontSize: 17,
+    color: colors.text,
+    minHeight: 180,
+    textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: colors.border,
+    lineHeight: 26,
+  },
+  optionalCard: {},
+  optionalLabel: { fontSize: 14, fontWeight: "600", color: colors.textMuted, marginBottom: 10 },
+  secondaryInput: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
     padding: 16,
     fontSize: 16,
     color: colors.text,
-    minHeight: 170,
+    minHeight: 80,
     textAlignVertical: "top",
     borderWidth: 1,
     borderColor: colors.border,
     lineHeight: 24,
   },
-  footer: { flexDirection: "row", padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
-  backButton: { paddingVertical: 16 },
-  backButtonText: { fontSize: 16, color: colors.textMuted, fontWeight: "600" },
-  nextButton: { minWidth: 150 },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background
+  },
   stateCard: { margin: 24, marginTop: 80, padding: 22, backgroundColor: colors.surfaceSoft, borderRadius: radii.card, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
   stateTitle: { fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 8, textAlign: "center" },
   stateText: { fontSize: 14, color: colors.textMuted, lineHeight: 21, textAlign: "center" },

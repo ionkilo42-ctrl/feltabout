@@ -21,6 +21,11 @@ AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
+# MiniMax config (OpenAI-compatible endpoint)
+MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
+MINIMAX_BASE_URL = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
+MINIMAX_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-Text-01")
+
 
 # ─── AI Router ─────────────────────────────────────────────────────────────────
 
@@ -48,10 +53,38 @@ class AIRouter:
         Returns:
             Generated text content
         """
-        if AI_PROVIDER == "openai" and self.api_key:
+        if AI_PROVIDER == "minimax" and MINIMAX_API_KEY:
+            return await self._generate_minimax(messages, max_tokens)
+        elif AI_PROVIDER == "openai" and self.api_key:
             return await self._generate_openai(messages, max_tokens)
         else:
-            raise ValueError("No valid AI provider configured")
+            raise ValueError(f"No valid AI provider configured (provider: {AI_PROVIDER})")
+    
+    async def _generate_minimax(self, messages: list[dict], max_tokens: int) -> str:
+        """Call MiniMax API (OpenAI-compatible endpoint)."""
+        url = f"{MINIMAX_BASE_URL}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {MINIMAX_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": MINIMAX_MODEL,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.7,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            choices = data.get("choices", [])
+            if choices:
+                msg = choices[0].get("message", {})
+                return msg.get("content", "")
+            return ""
+        except Exception as e:
+            raise ConnectionError(f"MiniMax API call failed: {e}")
     
     async def _generate_openai(self, messages: list[dict], max_tokens: int) -> str:
         """Call OpenAI-compatible API."""

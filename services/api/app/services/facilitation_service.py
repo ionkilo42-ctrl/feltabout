@@ -119,7 +119,7 @@ class FacilitationService:
         return self._fallback_with_analysis(reflection, analysis)
     
     def _build_analysis_aware_prompt(self, reflection: dict, analysis: dict) -> str:
-        """Build facilitation prompt with analysis context."""
+        """Build facilitation prompt with analysis context — simplified for single opener output."""
         # Build context from analysis
         context_parts = []
         
@@ -127,66 +127,68 @@ class FacilitationService:
         primary_emotions = analysis.get("primary_emotions", [])
         if primary_emotions:
             emotion_names = [e.get("name", "") for e in primary_emotions[:3]]
-            context_parts.append(f"Detected emotions: {', '.join(emotion_names)}")
+            context_parts.append(f"Emotions: {', '.join(emotion_names)}")
         
         # Needs
         needs = analysis.get("needs", [])
         if needs:
             need_names = [n.get("category", "") for n in needs[:3]]
-            context_parts.append(f"Underlying needs: {', '.join(need_names)}")
+            context_parts.append(f"Needs: {', '.join(need_names)}")
         
         # Conflict markers
         conflict_markers = analysis.get("conflict_markers", [])
         if conflict_markers:
             marker_types = [m.get("type", "") for m in conflict_markers]
-            context_parts.append(f"Conflict patterns: {', '.join(marker_types)}")
+            context_parts.append(f"Patterns: {', '.join(marker_types)}")
         
         # Shame markers
         shame_markers = analysis.get("shame_markers", [])
         has_shame = any(m.get("shame_type") == "shame" for m in shame_markers)
         if has_shame:
-            context_parts.append("Shame patterns detected - use gentle, validating tone")
+            context_parts.append("Shame present - keep tone gentle")
         
         # Conversation risks
         conversation_risks = analysis.get("conversation_risks", [])
         high_risks = [r.get("risk_type") for r in conversation_risks if r.get("severity", 0) > 0.5]
         if high_risks:
-            context_parts.append(f"Conversation risks to address: {', '.join(high_risks)}")
+            context_parts.append(f"Risks: {', '.join(high_risks)}")
         
-        analysis_context = "\n".join(context_parts) if context_parts else "No specific patterns detected."
+        analysis_context = "\n".join(context_parts) if context_parts else ""
         
-        return f"""You are feltabout, an AI communication guidance assistant. Your role is to help people
-prepare for difficult conversations with empathy, clarity, and emotional intelligence.
+        return f"""You are a sharp communication editor. Not a therapist, not a life coach — a skilled editor who helps people say what they actually mean.
 
-IMPORTANT: You are NOT a therapist. You do NOT diagnose. You do NOT provide mental health treatment.
-You offer reflection prompts, communication guidance, and conversation preparation support.
+YOUR JOB: Take messy, emotionally-loaded input and turn it into ONE honest, calm statement the person can actually say.
 
-INTERNAL ANALYSIS (for your reference, do not expose clinical labels to user):
+RULES:
+- Sound like a real human, not a greeting card or a therapist
+- No therapy language ("I feel that...", "I want to share...")
+- No over-validation ("I completely understand...")
+- No corporate polish ("I wanted to reach out...")
+- No promises ("This will help us...")
+- Keep it under 2 sentences
+- It should feel like something a thoughtful person would actually say
+
+INTERNAL ANALYSIS (use this to understand the person, don't expose it):
 {analysis_context}
 
-Given the following reflection data, generate a structured conversation plan:
+USER INPUT:
+{reflection.get('situation', '')}
 
-SITUATION: {reflection.get('situation', '')}
-FEELINGS: {reflection.get('feelings', '')}
-INTERPRETATION (story you're telling yourself): {reflection.get('interpretation', '')}
-NEEDS: {reflection.get('needs', '')}
-FEARS: {reflection.get('fears', '')}
-DESIRED OUTCOME: {reflection.get('desired_outcome', '')}
-MESSAGE DRAFT: {reflection.get('message_draft', '')}
+WHAT THEY WANT:
+{reflection.get('desired_outcome', '')}
 
-Generate a JSON response with these exact fields (no markdown, no explanation, just the JSON):
+Generate JSON with exactly this structure:
 {{
-  "emotional_summary": "2-3 sentence summary of the emotional landscape",
-  "needs_summary": "2-3 sentence summary of the underlying needs",
-  "assumptions": "List of 2-3 possible assumptions being made (gentle, non-judgmental)",
-  "reframe": "A gentle reframe of the situation that opens space for understanding",
-  "avoid_saying": "2-3 specific things to avoid saying and why",
-  "conversation_opener": "A calm, non-accusatory way to begin the conversation",
-  "followup_questions": "2-3 follow-up questions to explore understanding",
-  "repair_statement": "A closing statement oriented toward repair and connection"
-}}
-
-Style: calm, warm, practical, non-clinical. Avoid therapy language. Be specific and actionable."""
+  "simple_opener": "ONE clear statement the user can say - honest, non-accusatory, human-sounding",
+  "emotional_summary": "2-3 sentence summary of what they're carrying (keep it internal)",
+  "needs_summary": "1-2 sentences on what they need (internal use)",
+  "assumptions": "2-3 gentle questions to check their assumptions (internal)",
+  "reframe": "One sentence that shifts perspective (internal)",
+  "avoid_saying": "2 things to avoid (internal)",
+  "conversation_opener": "Alternative way to begin (internal)",
+  "followup_questions": "1-2 follow-up questions (internal)",
+  "repair_statement": "One closing statement (internal)"
+}}"""
     
     def _build_facilitation_prompt(self, reflection: dict) -> str:
         """Build the facilitation prompt from reflection data."""
@@ -208,6 +210,7 @@ MESSAGE DRAFT: {reflection.get('message_draft', '')}
 
 Generate a JSON response with these exact fields (no markdown, no explanation, just the JSON):
 {{
+  "simple_opener": "One clear thing the user could say first",
   "emotional_summary": "2-3 sentence summary of the emotional landscape",
   "needs_summary": "2-3 sentence summary of the underlying needs",
   "assumptions": "List of 2-3 possible assumptions being made (gentle, non-judgmental)",
@@ -233,16 +236,25 @@ Style: calm, warm, practical, non-clinical. Avoid therapy language. Be specific 
             except Exception:
                 pass
         return {}
+
+    def _build_simple_opener(self, reflection: dict) -> str:
+        """Return one practical first line for local fallback output."""
+        desired = str(reflection.get("desired_outcome", "") or "").strip()
+        if desired:
+            return f"I'd like to talk about this directly. What I'm hoping for is {desired[:120]}."
+        return "I'd like to talk about what happened without turning it into a fight. I want to explain how it landed for me and understand your side."
     
     def _fallback_plan(self, reflection: dict) -> dict:
         """Generate a local fallback plan when no API is available."""
+        simple_opener = self._build_simple_opener(reflection)
         return {
+            "simple_opener": simple_opener,
             "emotional_summary": f"It sounds like you're navigating something difficult. You mentioned feeling: {reflection.get('feelings', 'unsure')[:100]}.",
             "needs_summary": f"Underneath the situation, you may be looking for: {reflection.get('needs', 'understanding and respect')[:100]}.",
             "assumptions": "Consider: What story am I telling myself? Is there another perspective?",
             "reframe": "Before the conversation, you might say to yourself: 'I want to understand their perspective too.'",
             "avoid_saying": "1. 'You're always...' (absolute statements)\n2. 'You made me feel...' (blame language)\n3. Starting with accusations before sharing your experience.",
-            "conversation_opener": f"I've been thinking about something and I'd like to talk with you when we both have time. {reflection.get('situation', 'Our last conversation')[:50]}...",
+            "conversation_opener": simple_opener,
             "followup_questions": "1. 'Can you help me understand your perspective?'\n2. 'What do you need from me?'\n3. 'How can I support you?'",
             "repair_statement": "I care about our relationship and I want to find a way through this together.",
         }
@@ -282,14 +294,18 @@ Style: calm, warm, practical, non-clinical. Avoid therapy language. Be specific 
             avoid_text = "\n".join(avoid_tips[:2]) + "\n" + avoid_text
         if shame_tip:
             avoid_text += f"\n{shame_tip}"
+
+        feelings = str(reflection.get("feelings", "") or "")[:100]
+        simple_opener = self._build_simple_opener(reflection)
         
         return {
-            "emotional_summary": f"{emotions_summary}This is a situation many people find challenging to navigate. {reflection.get('feelings', '')}[:100]",
+            "simple_opener": simple_opener,
+            "emotional_summary": f"{emotions_summary}This is a situation many people find challenging to navigate. {feelings}",
             "needs_summary": f"{needs_summary}Understanding what you need is an important first step.",
             "assumptions": "Consider: What story am I telling myself? Is there another perspective?",
             "reframe": "Before the conversation, you might say to yourself: 'I want to understand their perspective too.'",
             "avoid_saying": avoid_text,
-            "conversation_opener": f"I've been thinking about something and I'd like to talk with you when we both have time. {reflection.get('situation', 'Our last conversation')[:50]}...",
+            "conversation_opener": simple_opener,
             "followup_questions": "1. 'Can you help me understand your perspective?'\n2. 'What do you need from me?'\n3. 'How can I support you?'",
             "repair_statement": "I care about our relationship and I want to find a way through this together.",
         }

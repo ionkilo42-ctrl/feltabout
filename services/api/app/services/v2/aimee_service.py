@@ -78,8 +78,8 @@ async def extract_emotions(request: ExtractionRequest) -> ExtractionResponse:
             safety_status="flagged",
         )
     
-    # Step 2: Try AI extraction
-    api_key = os.environ.get("OPENAI_API_KEY")
+    # Step 2: Try AI extraction (MiniMax or OpenAI)
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
     
     if api_key:
         return await _extract_with_openai(request.text)
@@ -88,7 +88,7 @@ async def extract_emotions(request: ExtractionRequest) -> ExtractionResponse:
 
 
 async def _extract_with_openai(text: str) -> ExtractionResponse:
-    """Extract emotions using OpenAI."""
+    """Extract emotions using MiniMax (OpenAI-compatible API)."""
     import openai
     
     system_prompt = """You are Aimee, a feelings guide. You help people understand their emotions.
@@ -125,9 +125,18 @@ Example format:
   "suggested_response": "That frustration seems connected to your need for fairness. Does that resonate?"
 }"""
 
+    # Use MiniMax endpoint if configured, otherwise fallback
+    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    model = os.environ.get("MINIMAX_MODEL", "MiniMax-Text-01")
+    
     try:
-        response = await openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY")).chat.completions.create(
-            model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url=base_url
+        )
+        response = client.chat.completions.create(
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text}
@@ -164,6 +173,8 @@ Example format:
             safety_status="safe",
         )
     except Exception as e:
+        # Log error for debugging
+        print(f"MINIMAX ERROR: {type(e).__name__}: {e}")
         # Fallback to mock on error
         return _extract_with_mock(text)
 

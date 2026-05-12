@@ -21,7 +21,7 @@ from app.schemas.feelflow import (
     FeelFlowReflectionEventsResponse,
 )
 from app.services.feelflow_service import FeelFlowService
-from app.api.routes_reflections import require_user
+from app.api.routes_auth import require_user
 
 
 # ─── Router ────────────────────────────────────────────────────────────────────

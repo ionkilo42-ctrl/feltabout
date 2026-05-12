@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.services.patterns_service import analyze_user_patterns, PatternsResult
 from app.services import ReflectionService
-from app.api.routes_reflections import require_user
+from app.api.routes_auth import require_user
 
 
 # ─── Router ────────────────────────────────────────────────────────────────────

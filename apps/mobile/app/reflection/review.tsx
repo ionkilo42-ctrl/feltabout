@@ -56,34 +56,28 @@ export default function ReviewScreen() {
     );
   }
 
-  const fields: { label: string; value: string }[] = [
-    { label: "What happened?", value: reflection.situation },
-    { label: "What are you feeling?", value: reflection.feelings },
-    { label: "What story are you telling yourself?", value: reflection.interpretation },
-    { label: "What do you need?", value: reflection.needs },
-    { label: "What are you afraid of?", value: reflection.fears },
-    { label: "What outcome do you want?", value: reflection.desired_outcome },
-    { label: "What do you want to say?", value: reflection.message_draft },
-  ];
-
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>Review</Text>
+        <Text style={styles.eyebrow}>Your reflection</Text>
         <Text style={styles.header}>Read it back slowly.</Text>
         <Text style={styles.subheader}>
-          Take a moment to read through your answers before generating a conversation plan.
+          Take a moment to check in with what you wrote before we generate your conversation prep.
         </Text>
 
-        {fields.map(
-          (field) =>
-            field.value ? (
-              <View key={field.label} style={styles.field}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <Text style={styles.fieldValue}>{field.value}</Text>
-              </View>
-            ) : null
-        )}
+        {/* What happened */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>What's going on</Text>
+          <Text style={styles.fieldValue}>{reflection.situation}</Text>
+        </View>
+
+        {/* What they want (if provided) */}
+        {reflection.desired_outcome ? (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>What they want</Text>
+            <Text style={styles.fieldValue}>{reflection.desired_outcome}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -91,7 +85,7 @@ export default function ReviewScreen() {
           style={styles.editButton}
           onPress={() => router.push(`/reflection/new?edit=${reflection.id}`)}
         >
-          <Text style={styles.editButtonText}>← Edit Answers</Text>
+          <Text style={styles.editButtonText}>← Edit</Text>
         </TouchableOpacity>
         <GradientButton
           label="Generate plan"
@@ -106,13 +100,13 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
-  content: { padding: 24, paddingBottom: 100 },
+  content: { padding: 24, paddingBottom: 120 },
   eyebrow: { fontSize: 12, fontWeight: "700", color: colors.textQuiet, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
   header: { fontSize: 28, fontWeight: "700", color: colors.text, marginBottom: 8, letterSpacing: 0 },
   subheader: { fontSize: 15, color: colors.textMuted, marginBottom: 28, lineHeight: 23 },
   field: { marginBottom: 20 },
   fieldLabel: { fontSize: 12, fontWeight: "700", color: colors.textQuiet, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
-  fieldValue: { fontSize: 16, color: colors.text, lineHeight: 25, backgroundColor: colors.surfaceSoft, padding: 16, borderRadius: radii.panel, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
+  fieldValue: { fontSize: 17, color: colors.text, lineHeight: 27, backgroundColor: colors.surfaceSoft, padding: 16, borderRadius: radii.panel, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)", ...shadow.card },
   footer: {
     position: "absolute",
     bottom: 0,

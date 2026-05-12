@@ -3,12 +3,12 @@ feltabout API — FastAPI backend for individual reflection and conversation-pre
 
 MVP scope: single-user reflection, no couples sessions, no realtime voice.
 
-Architecture: Four-Engine Model
+Architecture: Three-Engine Model
 - Reflection Engine (app/services/reflection_service.py) — intake and emotional clarification
-- Extraction Engine (app/services/extraction_service.py) — emotional analysis and core memory detection
 - Facilitation Engine (app/services/facilitation_service.py) — reframing and conversation preparation
 - Safety Engine (app/services/safety_service.py) — crisis, abuse, coercion, and escalation handling
 
+Extraction is an internal stage in the reflection pipeline, not a fourth product engine.
 All AI generation passes through Safety Engine first.
 """
 

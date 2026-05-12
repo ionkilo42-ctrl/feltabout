@@ -9,23 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes_auth import require_user
 from app.db.session import get_db
 from app.models import Reflection, ReflectionFeedback, ReflectionOutput, SafetyEvent
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-async def require_user(current_user: dict = None) -> dict:
-    """Admin routes require authentication (MVP 2: add admin role check)."""
-    import os
-    USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
-    
-    if USE_AUTH and not current_user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    # Dev mode: allow all requests
-    return {"sub": "dev-user-001"}
 
 
 @router.get("/analytics/feedback-summary")

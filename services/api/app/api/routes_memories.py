@@ -22,7 +22,7 @@ from app.schemas.core_memory import (
     CoreMemoryListResponse,
 )
 from app.services.core_memory_service import CoreMemoryService
-from app.api.routes_reflections import require_user
+from app.api.routes_auth import require_user
 
 
 # ─── Router ────────────────────────────────────────────────────────────────────

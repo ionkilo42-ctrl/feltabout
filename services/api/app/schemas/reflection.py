@@ -44,14 +44,17 @@ class ReflectionOutputResponse(BaseModel):
 
     id: str
     reflection_id: str
-    emotional_summary: str
-    needs_summary: str
-    assumptions: str
-    reframe: str
-    avoid_saying: str
-    conversation_opener: str
-    followup_questions: str
-    repair_statement: str
+    # Primary output: one clear thing to say
+    simple_opener: str = ""
+    # Full analysis (can be shown in expandable section)
+    emotional_summary: str = ""
+    needs_summary: str = ""
+    assumptions: str = ""
+    reframe: str = ""
+    avoid_saying: str = ""
+    conversation_opener: str = ""
+    followup_questions: str = ""
+    repair_statement: str = ""
     created_at: datetime
 
 
@@ -121,6 +124,9 @@ class ReflectionFeedbackResponse(BaseModel):
     less_reactive_score: int
     helpful_text: str
     conversation_went_better: int
+    # New: "How did it go?" after the conversation
+    how_did_it_go: Optional[int] = None  # 1=Better than expected, 2=About the same, 3=Worse, 4=Didn't have it
+    what_happened: Optional[str] = None  # Follow-up text describing what happened
     created_at: datetime
 
 
@@ -129,6 +135,8 @@ class UpdateFeedbackRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     
     conversation_went_better: Optional[int] = None
+    how_did_it_go: Optional[int] = None  # 1=Better, 2=Same, 3=Worse, 4=Didn't have it
+    what_happened: Optional[str] = None
 
 
 ReflectionResponse.model_rebuild()

@@ -270,7 +270,7 @@ class ReflectionService:
         Args:
             db: Database session
             reflection: Reflection to save output for
-            plan_data: Dict with conversation plan fields
+            plan_data: Dict with conversation plan fields (including simple_opener)
             metadata: Optional dict with generation metadata (prompt_version, model_provider, etc.)
 
         Returns:
@@ -280,6 +280,9 @@ class ReflectionService:
         enc_plan = _encrypt_output_fields(plan_data)
 
         output = reflection.output or ReflectionOutput(reflection_id=reflection.id)
+        # Primary output: simple_opener
+        output.simple_opener = enc_plan.get("simple_opener", "")
+        # Full analysis (internal use)
         output.emotional_summary = enc_plan.get("emotional_summary", "")
         output.needs_summary = enc_plan.get("needs_summary", "")
         output.assumptions = enc_plan.get("assumptions", "")

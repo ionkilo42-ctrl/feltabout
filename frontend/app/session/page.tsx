@@ -1,146 +1,87 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/sessionStore'
 
-// ─── Steps ────────────────────────────────────────────────────────────────────
+type Step = 'input' | 'generating' | 'done' | 'error'
 
-type Step = 'intro' | 1 | 2 | 3 | 4 | 5 | 'generating' | 'done' | 'error'
-
-interface Answers {
-  situation: string
-  feelings: string
-  interpretation: string
-  needs: string
-  desired_outcome: string
+interface PlanOutput {
+  simple_opener?: string
+  emotional_summary?: string
+  needs_summary?: string
+  assumptions?: string
+  reframe?: string
+  avoid_saying?: string
+  conversation_opener?: string
+  followup_questions?: string
+  repair_statement?: string
 }
 
-interface OutputPlan {
-  emotional_summary: string
-  needs_summary: string
-  assumptions: string
-  reframe: string
-  avoid_saying: string
-  conversation_opener: string
-  followup_questions: string
-  repair_statement: string
+interface GenerateResponse {
+  is_crisis: boolean
+  severity: string
+  message: string
+  resources: string[]
+  output?: PlanOutput | null
 }
 
-const QUESTIONS: Record<keyof Answers, { prompt: string; placeholder: string }> = {
-  situation: {
-    prompt: "What conversation are you preparing for?",
-    placeholder: "e.g. Talking to my partner about feeling disconnected...",
-  },
-  feelings: {
-    prompt: "What feels hardest about it?",
-    placeholder: "e.g. I'm scared of making things worse, or of being dismissed...",
-  },
-  interpretation: {
-    prompt: "What do I want them to understand?",
-    placeholder: "e.g. I need them to see that I'm not attacking them — I'm just hurting...",
-  },
-  needs: {
-    prompt: "What do I want to better understand about them?",
-    placeholder: "e.g. What's going on on their side that I might be missing?",
-  },
-  desired_outcome: {
-    prompt: "What outcome feels realistic and respectful?",
-    placeholder: "e.g. I want us to agree to try a weekly check-in, not fix everything tonight...",
-  },
+const DETAILS: { key: keyof PlanOutput; label: string }[] = [
+  { key: 'emotional_summary', label: "What you're carrying" },
+  { key: 'needs_summary', label: 'What you need' },
+  { key: 'assumptions', label: 'Assumptions to check' },
+  { key: 'reframe', label: 'A clearer frame' },
+  { key: 'avoid_saying', label: 'What to avoid' },
+  { key: 'conversation_opener', label: 'Another way to begin' },
+  { key: 'followup_questions', label: 'Follow-up questions' },
+  { key: 'repair_statement', label: 'Closing statement' },
+]
+
+function PageShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="session-page">
+      <header className="app-header">
+        <div className="brand-lockup">
+          <Link href="/">
+            <img className="brand-mark" src="/logo.png" alt="Feltabout" />
+          </Link>
+        </div>
+      </header>
+
+      <div className="session-container">{children}</div>
+      <style>{styles}</style>
+    </div>
+  )
 }
-
-const STEP_ORDER: (keyof Answers)[] = ['situation', 'feelings', 'interpretation', 'needs', 'desired_outcome']
-
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-function useAuth() {
-  const token = useAuthStore(s => s.token)
-  return { token }
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SessionPage() {
   const router = useRouter()
-  const { token } = useAuth()
-  const [step, setStep] = useState<Step>('intro')
-  const [answers, setAnswers] = useState<Answers>({
-    situation: '',
-    feelings: '',
-    interpretation: '',
-    needs: '',
-    desired_outcome: '',
-  })
-  const [currentField, setCurrentField] = useState<keyof Answers>('situation')
-  const [inputValue, setInputValue] = useState('')
+  const token = useAuthStore(s => s.token)
+  const [step, setStep] = useState<Step>('input')
+  const [situation, setSituation] = useState('')
+  const [desiredOutcome, setDesiredOutcome] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [reflectionId, setReflectionId] = useState<string | null>(null)
-  const [output, setOutput] = useState<OutputPlan | null>(null)
+  const [simpleOpener, setSimpleOpener] = useState<string | null>(null)
+  const [showFullDetails, setShowFullDetails] = useState(false)
+  const [fullOutput, setFullOutput] = useState<PlanOutput | null>(null)
+  const [safetyResources, setSafetyResources] = useState<string[]>([])
 
-  // ─── Navigation ─────────────────────────────────────────────────────────────
-
-  const handleStart = () => {
-    setStep(1)
-    setCurrentField('situation')
-    setInputValue('')
-  }
-
-  const handleNext = () => {
-    const trimmed = inputValue.trim()
-    if (!trimmed) return
-
-    setAnswers(prev => ({ ...prev, [currentField]: trimmed }))
-
-    const currentIndex = STEP_ORDER.indexOf(currentField)
-    if (currentIndex < STEP_ORDER.length - 1) {
-      const nextField = STEP_ORDER[currentIndex + 1]
-      setCurrentField(nextField)
-      setInputValue('')
-    } else {
-      // All questions answered — create reflection and generate
-      handleCreateAndGenerate({
-        situation: answers.situation,
-        feelings: answers.feelings,
-        interpretation: answers.interpretation,
-        needs: answers.needs,
-        desired_outcome: trimmed,
-      })
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleNext()
-    }
-  }
-
-  const handleRestart = () => {
-    setStep('intro')
-    setAnswers({ situation: '', feelings: '', interpretation: '', needs: '', desired_outcome: '' })
-    setCurrentField('situation')
-    setInputValue('')
-    setError(null)
-    setReflectionId(null)
-    setOutput(null)
-  }
-
-  // ─── API Calls ──────────────────────────────────────────────────────────────
-
-  const handleCreateAndGenerate = async (finalAnswers: Answers) => {
-    setStep('generating')
-    setError(null)
+  const handleSubmit = async () => {
+    const trimmedSituation = situation.trim()
+    if (!trimmedSituation) return
 
     if (!token) {
       router.push('/login')
       return
     }
 
+    setStep('generating')
+    setError(null)
+    setSafetyResources([])
+
     try {
-      // 1. Create reflection
       const createRes = await fetch(apiUrl('/reflections'), {
         method: 'POST',
         headers: {
@@ -148,12 +89,15 @@ export default function SessionPage() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          title: finalAnswers.situation.slice(0, 80),
-          situation: finalAnswers.situation,
-          feelings: finalAnswers.feelings,
-          interpretation: finalAnswers.interpretation,
-          needs: finalAnswers.needs,
-          desired_outcome: finalAnswers.desired_outcome,
+          title: trimmedSituation.slice(0, 80),
+          situation: trimmedSituation,
+          desired_outcome: desiredOutcome.trim(),
+          // Legacy fields kept empty for backward compat
+          feelings: '',
+          interpretation: '',
+          needs: '',
+          fears: '',
+          message_draft: '',
         }),
       })
 
@@ -163,9 +107,7 @@ export default function SessionPage() {
       }
 
       const reflection = await createRes.json()
-      setReflectionId(reflection.id)
 
-      // 2. Generate conversation plan
       const genRes = await fetch(apiUrl(`/reflections/${reflection.id}/generate`), {
         method: 'POST',
         headers: {
@@ -179,22 +121,15 @@ export default function SessionPage() {
         throw new Error(err.detail || 'Failed to generate plan')
       }
 
-      const generated = await genRes.json()
+      const generated = await genRes.json() as GenerateResponse
 
       if (generated.is_crisis) {
-        // Safety response — show crisis resources but still show session
-        setOutput({
-          emotional_summary: generated.message || 'Take a moment before continuing.',
-          needs_summary: '',
-          assumptions: '',
-          reframe: '',
-          avoid_saying: '',
-          conversation_opener: '',
-          followup_questions: '',
-          repair_statement: '',
-        })
+        setSimpleOpener(generated.message || 'Take a moment before continuing.')
+        setSafetyResources(generated.resources || [])
+        setFullOutput(null)
       } else if (generated.output) {
-        setOutput(generated.output)
+        setSimpleOpener(generated.output.simple_opener || generated.output.conversation_opener || '')
+        setFullOutput(generated.output)
       } else {
         throw new Error('No plan output returned')
       }
@@ -206,52 +141,22 @@ export default function SessionPage() {
     }
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
-
-  if (step === 'intro') {
-    return (
-      <div className="session-page">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <Link href="/">
-              <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-            </Link>
-          </div>
-        </header>
-
-        <div className="session-container">
-          <div className="session-intro">
-            <h2>Guided conversation prep</h2>
-            <p>
-              Answer five questions to clarify what you feel, what you need to say,
-              and how to open the conversation with care. Your session will be saved
-              to your library when you're done.
-            </p>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setStep(1)}
-            >
-              I'm ready to start
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  const handleRestart = () => {
+    setStep('input')
+    setSituation('')
+    setDesiredOutcome('')
+    setError(null)
+    setSimpleOpener(null)
+    setShowFullDetails(false)
+    setFullOutput(null)
+    setSafetyResources([])
   }
+
+  const hasDetails = fullOutput && DETAILS.some(detail => Boolean(fullOutput[detail.key]))
 
   if (step === 'generating') {
     return (
-      <div className="session-page">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <Link href="/">
-              <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-            </Link>
-          </div>
-        </header>
-
-        <div className="session-container">
+      <PageShell>
         <div className="session-generating">
           <div className="generating-card">
             <div className="generating-animation">
@@ -259,186 +164,478 @@ export default function SessionPage() {
               <div className="dot"></div>
               <div className="dot"></div>
             </div>
-            <h2>Preparing your reflection</h2>
-            <p>This usually takes a moment.</p>
+            <h2>Finding the right words</h2>
+            <p>One moment...</p>
           </div>
         </div>
-        </div>
-      </div>
+      </PageShell>
     )
   }
 
   if (step === 'error') {
     return (
-      <div className="session-page">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <Link href="/">
-              <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-            </Link>
-          </div>
-        </header>
-
-        <div className="session-container">
-          <div className="session-intro">
-            <h2>Something went wrong</h2>
-            <p className="error-text">{error}</p>
-            <button className="btn-primary" onClick={handleRestart}>
-              Try again
-            </button>
-          </div>
+      <PageShell>
+        <div className="session-intro">
+          <h2>Something went wrong</h2>
+          <p className="error-text">{error}</p>
+          <button className="btn-primary" onClick={handleRestart}>
+            Try again
+          </button>
         </div>
-      </div>
+      </PageShell>
     )
   }
 
   if (step === 'done') {
-    const fields: { label: string; key: keyof Answers }[] = [
-      { label: "What's on your mind", key: 'situation' },
-      { label: "What felt hardest", key: 'feelings' },
-      { label: "What you want them to understand", key: 'interpretation' },
-      { label: "What you want to understand about them", key: 'needs' },
-      { label: "Your hoped-for outcome", key: 'desired_outcome' },
-    ]
-
     return (
-      <div className="session-page">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <Link href="/">
-              <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-            </Link>
+      <PageShell>
+        <div className="session-done">
+          <div className="opener-card">
+            <div className="opener-label">One thing you could say</div>
+            <p className="opener-text">{simpleOpener}</p>
           </div>
-        </header>
 
-        <div className="session-container">
-          <div className="session-done">
-            <div className="done-header">
-              <div className="done-icon">✓</div>
-              <h2>Your conversation prep is ready</h2>
-              <p>This session has been saved to your library.</p>
+          {safetyResources.length > 0 && (
+            <div className="resources-list">
+              {safetyResources.map(resource => (
+                <p key={resource}>{resource}</p>
+              ))}
             </div>
+          )}
 
-            {/* Summary Cards */}
-            <div className="summary-cards">
-              {output && output.emotional_summary && (
-                <div className="summary-card calm">
-                  <div className="card-label">What you're carrying</div>
-                  <p>{output.emotional_summary}</p>
-                </div>
-              )}
-              {output && output.needs_summary && (
-                <div className="summary-card calm">
-                  <div className="card-label">What you need</div>
-                  <p>{output.needs_summary}</p>
-                </div>
-              )}
-              {output && output.assumptions && (
-                <div className="summary-card">
-                  <div className="card-label">Assumptions to check</div>
-                  <p>{output.assumptions}</p>
-                </div>
-              )}
-              {output && output.reframe && (
-                <div className="summary-card">
-                  <div className="card-label">A clearer frame</div>
-                  <p>{output.reframe}</p>
-                </div>
-              )}
-              {output && output.conversation_opener && (
-                <div className="summary-card opener">
-                  <div className="card-label">A way to begin</div>
-                  <p>{output.conversation_opener}</p>
-                </div>
-              )}
-              {output && output.followup_questions && (
-                <div className="summary-card">
-                  <div className="card-label">Questions to sit with</div>
-                  <p>{output.followup_questions}</p>
-                </div>
-              )}
+          {desiredOutcome && (
+            <div className="outcome-note">
+              You wanted: {desiredOutcome}
             </div>
+          )}
 
-            {/* CTA Buttons */}
-            <div className="done-actions">
-              <Link href="/library" className="btn-primary">
-                View in library
-              </Link>
-              <button className="btn-secondary" onClick={handleRestart}>
-                Start another session
+          {hasDetails && (
+            <div className="details-section">
+              <button
+                className="details-toggle"
+                onClick={() => setShowFullDetails(!showFullDetails)}
+              >
+                {showFullDetails ? 'Hide details' : 'See full details'}
               </button>
+
+              {showFullDetails && (
+                <div className="details-content">
+                  {DETAILS.map(detail => {
+                    const value = fullOutput?.[detail.key]
+                    if (!value) return null
+                    return (
+                      <div key={detail.key} className="detail-card">
+                        <div className="detail-label">{detail.label}</div>
+                        <p>{value}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
+          )}
+
+          <div className="done-actions">
+            <Link href="/library" className="btn-primary">
+              View in library
+            </Link>
+            <button className="btn-ghost" onClick={handleRestart}>
+              Start another
+            </button>
           </div>
         </div>
-      </div>
+      </PageShell>
     )
   }
 
-  // ─── Question Step ───────────────────────────────────────────────────────────
-
-  const currentStepIndex = STEP_ORDER.indexOf(currentField) + 1
-  const totalSteps = STEP_ORDER.length
-  const question = QUESTIONS[currentField]
-
   return (
-    <div className="session-page">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <Link href="/">
-            <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-          </Link>
+    <PageShell>
+      <div className="session-input">
+        <div className="input-header">
+          <h2>Tell me what's going on.</h2>
+          <p className="input-subtitle">Say it messy. We'll find the clarity.</p>
         </div>
-      </header>
 
-      <div className="session-container">
-        <div className="session-step">
-          {/* Progress */}
-          <div className="step-progress">
-            <div className="step-dots">
-              {STEP_ORDER.map((_, i) => (
-                <span
-                  key={i}
-                  className={`step-dot ${i < currentStepIndex ? 'done' : i === currentStepIndex - 1 ? 'current' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="step-count">{currentStepIndex} of {totalSteps}</span>
-          </div>
+        <div className="input-fields">
+          <textarea
+            value={situation}
+            onChange={e => setSituation(e.target.value)}
+            placeholder="Something happened, or it's been building up. Just get it out..."
+            rows={6}
+            className="main-input"
+            autoFocus
+          />
 
-          {/* Prompt */}
-          <div className="step-prompt">
-            <h2>{question.prompt}</h2>
-          </div>
-
-          {/* Input */}
-          <div className="step-input-area">
+          <div className="optional-field">
+            <label>What do you want from this conversation? (optional)</label>
             <textarea
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={question.placeholder}
-              rows={4}
-              autoFocus
+              value={desiredOutcome}
+              onChange={e => setDesiredOutcome(e.target.value)}
+              placeholder="e.g. I want us to understand each other better, not fix everything tonight"
+              rows={2}
+              className="secondary-input"
             />
           </div>
+        </div>
 
-          {/* Continue button */}
-          <div className="step-actions">
-            <button
-              className="btn-primary"
-              onClick={handleNext}
-              disabled={!inputValue.trim()}
-            >
-              {currentStepIndex < totalSteps ? 'Continue' : 'Generate plan'}
-            </button>
-            {currentStepIndex > 1 && (
-              <button className="btn-ghost" onClick={handleRestart}>
-                Start over
-              </button>
-            )}
-          </div>
+        <div className="input-actions">
+          <button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={!situation.trim()}
+          >
+            Find the words
+          </button>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = `
+.session-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.brand-lockup {
+  flex: 1;
+}
+
+.brand-mark {
+  height: 24px;
+  width: auto;
+}
+
+.session-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.5rem;
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Input step */
+.session-input {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.input-header h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin: 0 0 0.5rem;
+}
+
+.input-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+}
+
+.input-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.main-input {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 160px;
+  background: white;
+  color: var(--text-primary, #111827);
+}
+
+.main-input:focus {
+  outline: none;
+  border-color: var(--accent, #e07a5f);
+  box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
+}
+
+.main-input::placeholder {
+  color: var(--text-quiet, #9ca3af);
+}
+
+.optional-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.optional-field label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+}
+
+.secondary-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  resize: vertical;
+  background: white;
+  color: var(--text-primary, #111827);
+}
+
+.secondary-input:focus {
+  outline: none;
+  border-color: var(--accent, #e07a5f);
+}
+
+.secondary-input::placeholder {
+  color: var(--text-quiet, #9ca3af);
+}
+
+.input-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Generating step */
+.session-generating {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.generating-card {
+  text-align: center;
+}
+
+.generating-animation {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  background: var(--accent, #e07a5f);
+  border-radius: 50%;
+  animation: bounce 1.4s ease-in-out infinite;
+}
+
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-12px); }
+}
+
+.generating-card h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  margin: 0 0 0.5rem;
+}
+
+.generating-card p {
+  font-size: 0.9375rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+}
+
+/* Done step */
+.session-done {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.opener-card {
+  background: white;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.opener-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent, #e07a5f);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.opener-text {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-primary, #111827);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.outcome-note {
+  font-size: 0.875rem;
+  color: var(--text-muted, #6b7280);
+  font-style: italic;
+}
+
+.resources-list {
+  background: white;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.resources-list p {
+  color: var(--text-primary, #111827);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+
+.resources-list p:last-child {
+  margin-bottom: 0;
+}
+
+.details-section {
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  padding-top: 1rem;
+}
+
+.details-toggle {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.details-toggle:hover {
+  color: var(--text-primary, #111827);
+}
+
+.details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+.detail-card {
+  background: var(--card, white);
+  border: 1px solid var(--border-subtle, #f3f4f6);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.detail-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-quiet, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.detail-card p {
+  font-size: 0.9375rem;
+  color: var(--text-primary, #111827);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.done-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent, #e07a5f);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c9603f;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: none;
+  border: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  padding: 0.75rem;
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary, #111827);
+}
+
+.session-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  gap: 1rem;
+}
+
+.session-intro h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin: 0;
+}
+
+.error-text {
+  color: #dc2626;
+  font-size: 0.9375rem;
+  margin: 0;
+}
+`

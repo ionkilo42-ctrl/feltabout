@@ -143,14 +143,14 @@ def get_fallback_analysis(reflection: dict) -> InternalAnalysis:
 
 class ExtractionService:
     """
-    Extraction Engine for staged emotional analysis.
+    Internal extraction stage for reflection analysis.
     
     Responsible for:
     - Converting reflection data into InternalAnalysis
     - Using AI for structured extraction
     - Providing fallback for when no API key is available
     
-    This is the first stage in the Facilitation pipeline (after Safety).
+    This runs after Safety and before Facilitation; it is not a separate product engine.
     """
     
     def __init__(self, ai_router: Optional[AIRouter] = None):

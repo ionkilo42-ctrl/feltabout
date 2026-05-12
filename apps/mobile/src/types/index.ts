@@ -47,6 +47,9 @@ export interface Reflection {
 export interface ReflectionOutput {
   id: string;
   reflection_id: string;
+  // Primary output: one clear thing to say
+  simple_opener?: string;
+  // Full analysis (internal/hidden)
   emotional_summary: string;
   needs_summary: string;
   assumptions: string;
@@ -99,6 +102,8 @@ export interface ReflectionFeedback {
   less_reactive_score: number;  // 1=No, 2=Somewhat, 3=Yes
   helpful_text: string;
   conversation_went_better: number;  // 0=not answered, 1=No, 2=Somewhat, 3=Yes
+  how_did_it_go?: number | null;  // 1=Better, 2=Same, 3=Worse, 4=Didn't have it
+  what_happened?: string | null;
   created_at: string;
 }
 
@@ -106,6 +111,12 @@ export interface CreateFeedbackRequest {
   prepared_score: number;
   less_reactive_score: number;
   helpful_text?: string;
+}
+
+export interface UpdateFeedbackRequest {
+  conversation_went_better?: number;
+  how_did_it_go?: number;  // 1=Better, 2=Same, 3=Worse, 4=Didn't have it
+  what_happened?: string;
 }
 
 // Wizard step types

@@ -167,6 +167,7 @@ async def test_generate_plan_local_fallback(client):
     assert data["severity"] == "none"
     assert data["output"] is not None
     output = data["output"]
+    assert output["simple_opener"] != ""
     assert output["emotional_summary"] != ""
     assert output["conversation_opener"] != ""
     assert output["repair_statement"] != ""

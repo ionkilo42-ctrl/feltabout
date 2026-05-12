@@ -49,7 +49,10 @@ class ReflectionOutput(Base):
     id = Column(String(36), primary_key=True, default=lambda: uuid.uuid4().hex[:16])
     reflection_id = Column(String(36), ForeignKey("reflections.id", ondelete="CASCADE"), nullable=False, unique=True)
     
-    # Generated content
+    # Primary output: one clear thing to say
+    simple_opener = Column(Text, default="")
+
+    # Full analysis (internal/hidden from primary view)
     emotional_summary = Column(Text, default="")
     needs_summary = Column(Text, default="")
     assumptions = Column(Text, default="")
@@ -100,6 +103,13 @@ class ReflectionFeedback(Base):
     # 0 = not answered yet (user hasn't had the conversation), 1=No, 2=Somewhat, 3=Yes
     conversation_went_better = Column(Integer, default=0)
     
+    # New: "How did it go?" after the conversation
+    # 1=Better than expected, 2=About the same, 3=Worse, 4=Didn't have it
+    how_did_it_go = Column(Integer, nullable=True)
+
+    # Follow-up text describing what happened
+    what_happened = Column(Text, default="")
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     reflection = relationship("Reflection", back_populates="feedback")
