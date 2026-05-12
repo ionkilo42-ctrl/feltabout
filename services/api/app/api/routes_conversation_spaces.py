@@ -28,6 +28,7 @@ router = APIRouter(prefix="/conversation-spaces", tags=["conversation-spaces"])
 class CreateConversationSpaceRequest(BaseModel):
     name: Optional[str] = None
     max_participants: int = 2
+    frontend_origin: Optional[str] = None  # Browser origin for invite links
 
 
 class ConversationSpaceResponse(BaseModel):
@@ -112,9 +113,8 @@ async def create_conversation_space(
         max_participants=data.max_participants,
     )
     
-    # Generate invite URL
-    # Use Accept header for frontend URL if provided, otherwise default to localhost
-    frontend_url = "http://localhost:3000"
+    # Generate invite URL using browser-provided origin (works for localhost, ngrok, deployed)
+    frontend_url = data.frontend_origin.rstrip('/') if data.frontend_origin else "http://localhost:3000"
     invite_url = f"{frontend_url}/join/{raw_token}"
     
     return CreateConversationSpaceResponse(
@@ -262,9 +262,14 @@ async def join_conversation_space(
     )
 
 
+class RegenerateInviteRequest(BaseModel):
+    frontend_origin: Optional[str] = None  # Browser origin for invite links
+
+
 @router.post("/{space_id}/regenerate-invite")
 async def regenerate_invite(
     space_id: str,
+    data: RegenerateInviteRequest = RegenerateInviteRequest(),
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -278,7 +283,8 @@ async def regenerate_invite(
     if not new_token:
         raise HTTPException(status_code=403, detail="Not authorized to regenerate invite")
     
-    frontend_url = current_user.get("frontend_url", "http://localhost:3000")
+    # Use browser-provided origin if available
+    frontend_url = data.frontend_origin.rstrip('/') if data.frontend_origin else "http://localhost:3000"
     invite_url = f"{frontend_url}/join/{new_token}"
     
-    return {"invite_url": invite_url}
+    return {"invite_url": invite_url, "invite_token": new_token}

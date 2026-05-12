@@ -22,11 +22,14 @@ export default function StartSessionPage() {
     setError(null)
 
     try {
-      // Create conversation space
+      // Create conversation space with browser origin for proper invite links
       const spaceRes = await fetch(apiUrl('/conversation-spaces'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Shared Session' }),
+        body: JSON.stringify({ 
+          name: 'Shared Session',
+          frontend_origin: window.location.origin,
+        }),
       })
 
       if (!spaceRes.ok) {
@@ -36,6 +39,11 @@ export default function StartSessionPage() {
       const space = await spaceRes.json()
       const spaceId = space.id
       const inviteToken = space.invite_token
+
+      // Validate response
+      if (!spaceId || !inviteToken) {
+        throw new Error('Session was created but invite link was not returned')
+      }
 
       // Store in localStorage for persistence
       localStorage.setItem('current_space_id', spaceId)

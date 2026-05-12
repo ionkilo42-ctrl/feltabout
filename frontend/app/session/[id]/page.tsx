@@ -68,9 +68,9 @@ export default function SharedSessionPage() {
         setMessages(msgsData.messages || [])
         setParticipants(partsData.participants || [])
         
-        // Get invite token from localStorage
+        // Get invite token from localStorage (with safety check)
         const storedToken = localStorage.getItem('invite_token')
-        if (storedToken) {
+        if (storedToken && storedToken !== 'undefined' && storedToken.length > 0) {
           setInviteToken(storedToken)
         }
         
