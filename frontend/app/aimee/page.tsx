@@ -7,6 +7,7 @@ import ExtractionCard, { ExtractionData } from '../../components/v2/ExtractionCa
 import {
   extractWithAimee,
   confirmAimeeExtraction,
+  chatWithAimee,
   ExtractionResponse,
   ConfirmRequest,
   EMOTION_COLORS,

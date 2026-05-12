@@ -75,6 +75,7 @@ from app.api.routes_conversation_spaces import router as conversation_spaces_rou
 from app.api.routes_library import router as library_router
 from app.api.routes_patterns import router as patterns_router
 from app.api.routes_v2 import memories_router, feelings_router, entities_router, needs_router, aimee_router
+from app.routes_aimee import router as aimee_chat_router
 
 app.include_router(auth_router)
 app.include_router(conversation_spaces_router)
@@ -91,6 +92,9 @@ app.include_router(feelings_router)
 app.include_router(entities_router)
 app.include_router(needs_router)
 app.include_router(aimee_router)
+
+# Aimee conversational chat
+app.include_router(aimee_chat_router)
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────

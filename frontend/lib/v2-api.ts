@@ -205,6 +205,27 @@ export async function confirmAimeeExtraction(
   })
 }
 
+// ─── Aimee Conversational Chat ──────────────────────────────────────────────────
+
+export interface AimeeChatRequest {
+  message: string
+  context?: string
+}
+
+export interface AimeeChatResponse {
+  reply: string
+}
+
+export async function chatWithAimee(
+  message: string,
+  context?: string
+): Promise<AimeeChatResponse> {
+  return apiRequest<AimeeChatResponse>('/aimee/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, context }),
+  })
+}
+
 // ─── Memory API ───────────────────────────────────────────────────────────────
 
 export async function getV2Memories(): Promise<Memory[]> {
