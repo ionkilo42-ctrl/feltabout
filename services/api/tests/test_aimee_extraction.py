@@ -146,6 +146,38 @@ async def test_extract_requires_text_field(client):
     assert resp.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_extract_does_not_infer_emotion_from_name_only_input(client):
+    """Name-only input should not create a fake emotional extraction."""
+    payload = {"text": "My name is John."}
+
+    resp = await client.post("/v2/aimee/extract", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    assert data["feelings"] == []
+    assert data["suggested_memory_title"] == ""
+
+
+@pytest.mark.asyncio
+async def test_chat_name_only_input_stays_grounded(client):
+    """Name-only input should not trigger emotional assumptions."""
+    payload = {"message": "My name is John."}
+
+    resp = await client.post("/v2/aimee/chat", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    reply = data["reply"].lower()
+    assert "what's on your mind" not in reply
+    assert "sad" not in reply
+    assert "hurt" not in reply
+    assert "feeling" not in reply
+    assert "john" in reply
+
+
 # ─── Confirm Endpoint Tests ───────────────────────────────────────────────────
 
 @pytest.mark.asyncio

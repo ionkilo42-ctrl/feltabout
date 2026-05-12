@@ -6,6 +6,7 @@ User confirms. Only confirmed data gets saved.
 
 import os
 import json
+import re
 from typing import Optional
 
 from pydantic import ValidationError
@@ -23,6 +24,55 @@ from app.schemas.v2.aimee import (
     ChatRequest,
     ChatResponse,
 )
+
+
+LOW_SIGNAL_PATTERNS = [
+    re.compile(r"^\s*(hi|hello|hey|yo|sup|good morning|good afternoon|good evening)[.!?\s]*$", re.IGNORECASE),
+    re.compile(r"^\s*(i('| a)?m|i am)\s+[a-z][a-z '-]{0,40}[.!?\s]*$", re.IGNORECASE),
+    re.compile(r"^\s*(my name is|name'?s)\s+[a-z][a-z '-]{0,40}[.!?\s]*$", re.IGNORECASE),
+]
+
+
+def _extract_intro_name(text: str) -> Optional[str]:
+    """Return a first-name-like token from a simple introduction."""
+    match = re.match(
+        r"^\s*(?:hi[,!\s]*)?(?:i(?:'| a)?m|i am|my name is|name'?s)\s+([a-z][a-z'-]{0,30})\b",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+
+    name = match.group(1).strip(" .,!?\t\n\r")
+    if not name:
+        return None
+
+    return name[:1].upper() + name[1:].lower()
+
+
+def _is_low_signal_input(text: str) -> bool:
+    """Detect greetings and simple introductions that do not support extraction."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+
+    if any(pattern.match(cleaned) for pattern in LOW_SIGNAL_PATTERNS):
+        return True
+
+    word_count = len(re.findall(r"\b[\w'-]+\b", cleaned))
+    if word_count <= 3 and cleaned.lower() in {"hi there", "hello there", "hey there"}:
+        return True
+
+    return False
+
+
+def _build_low_signal_chat_reply(text: str) -> str:
+    """Reply naturally to greetings or introductions without inventing emotion."""
+    name = _extract_intro_name(text)
+    if name:
+        return f"Hi {name}. What would you like help thinking through today?"
+
+    return "Hi. What would you like help thinking through today?"
 
 
 # ─── Safety Check ────────────────────────────────────────────────────────────────
@@ -79,6 +129,14 @@ async def extract_emotions(request: ExtractionRequest) -> ExtractionResponse:
             suggested_response=message,
             safety_status="flagged",
         )
+
+    if _is_low_signal_input(request.text):
+        return ExtractionResponse(
+            feelings=[],
+            suggested_memory_title="",
+            suggested_response="",
+            safety_status="safe",
+        )
     
     # Step 2: Try AI extraction (MiniMax or OpenAI)
     api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
@@ -102,6 +160,11 @@ For each text, identify:
 4. Any entities (people, companies, etc.) mentioned
 5. Any topics or themes
 6. Underlying needs (using Nonviolent Communication framework)
+
+Important guardrails:
+- Stay anchored to what the person actually said.
+- If the text is only a greeting, introduction, or name, return no feelings and no needs.
+- Do not invent sadness, hurt, or any other emotion when the signal is thin.
 
 Be specific and empathetic. Use non-blaming language ("You felt angry" not "X made you angry").
 
@@ -184,6 +247,14 @@ Example format:
 def _extract_with_mock(text: str) -> ExtractionResponse:
     """Mock extraction for testing and when no API key is available."""
     text_lower = text.lower()
+
+    if _is_low_signal_input(text):
+        return ExtractionResponse(
+            feelings=[],
+            suggested_memory_title="",
+            suggested_response="",
+            safety_status="safe",
+        )
     
     # Simple keyword-based mock extraction
     feelings = []
@@ -290,9 +361,15 @@ async def chat_with_aimee(request: ChatRequest) -> ChatResponse:
             reply=crisis_message,
             safety_status="flagged",
         )
+
+    if _is_low_signal_input(request.message):
+        return ChatResponse(
+            reply=_build_low_signal_chat_reply(request.message),
+            safety_status="safe",
+        )
     
     # Step 2: Build conversation context
-    system_prompt = """You are Aimee, a warm and thoughtful reflection guide.
+    system_prompt = """You are Aimee, a calm and thoughtful reflection guide for Feltabout.
 
 You help people understand their feelings through gentle conversation. 
 You listen carefully, acknowledge what's shared, and ask one thoughtful question at a time.
@@ -300,10 +377,16 @@ You do not lecture, diagnose, or rush to solutions.
 
 Your style:
 - Calm and unhurried
-- Warm but not effusive  
+- Warm but not effusive
 - Curious about what matters to the person
 - Ask one question at a time when appropriate
 - Non-judgmental about any emotion or situation
+- Grounded in the user's actual words
+
+Rules:
+- Do not infer emotions, needs, or conflict from a greeting or simple introduction.
+- If the person only says hello or shares their name, greet them briefly and ask what they want help thinking through.
+- Do not use therapy language or generic filler like "Thank you for sharing that with me."
 
 Remember: you are a guide for reflection, not a therapist or advisor."""
 
@@ -358,6 +441,9 @@ async def _chat_with_openai(
 def _chat_with_mock(message: str) -> ChatResponse:
     """Mock chat for testing and when no API key is available."""
     text_lower = message.lower()
+
+    if _is_low_signal_input(message):
+        return ChatResponse(reply=_build_low_signal_chat_reply(message), safety_status="safe")
     
     # Warm, reflective responses
     if any(w in text_lower for w in ["angry", "frustrated", "mad", "annoyed"]):
@@ -373,7 +459,7 @@ def _chat_with_mock(message: str) -> ChatResponse:
     elif any(w in text_lower for w in ["help", "advice", "should i"]):
         reply = "I'm not here to give advice, but I'm happy to listen. What's going on?"
     else:
-        reply = "Thank you for sharing that with me. What's on your mind about it?"
+        reply = "Tell me a little more about what's going on."
     
     return ChatResponse(reply=reply, safety_status="safe")
 

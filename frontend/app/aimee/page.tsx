@@ -64,7 +64,7 @@ export default function AimeePage() {
     {
       id: 1,
       speaker: 'aimee',
-      text: "Hi, I'm Aimee. Who's starting Feltabout today?",
+      text: "Hi, I'm Aimee. What would you like help thinking through today?",
       time: '',  // Empty for SSR, set via useEffect after mount
     },
   ])
@@ -172,6 +172,7 @@ export default function AimeePage() {
             const extractionData = apiToExtractionData(extractionResponse)
             setExtraction(extractionData)
             setShowCard(true)
+            setCardMinimized(true)
           } else {
             setExtraction(null)
             setShowCard(false)
@@ -238,7 +239,7 @@ export default function AimeePage() {
     setSafetyMessage('')
     setShowCard(false)
     setCardMinimized(false)
-    addMessage('aimee', "Ready when you are. What's on your mind?")
+    addMessage('aimee', "Ready when you are. What would you like help thinking through?")
   }
   
   return (
@@ -313,38 +314,6 @@ export default function AimeePage() {
           </div>
         )}
 
-        {/* Extraction Card */}
-        {!saved && showCard && extraction && !cardMinimized && !safetyFlagged && (
-          <div className="extraction-container">
-            <ExtractionCard
-              extraction={extraction}
-              onConfirm={handleConfirm}
-              onEdit={handleEdit}
-              onAddFeeling={() => console.log('Add feeling')}
-              onAddNeed={() => console.log('Add need')}
-              onSkipNeed={() => console.log('Skip need')}
-              onSaveMemory={handleSaveMemory}
-              onClose={() => setCardMinimized(true)}
-              saving={saving}
-            />
-          </div>
-        )}
-
-        {/* Minimized card indicator */}
-        {!saved && showCard && extraction && cardMinimized && !safetyFlagged && (
-          <button
-            className="minimized-card-indicator"
-            onClick={() => setCardMinimized(false)}
-          >
-            <div 
-              className="minimized-dot" 
-              style={{ background: EMOTION_COLORS[extraction.primary_emotion] }} 
-            />
-            <span>Aimee noticed: {extraction.feeling}</span>
-            <span className="minimized-expand">+</span>
-          </button>
-        )}
-
         {/* Error display */}
         {error && (
           <div className="error-banner">
@@ -353,8 +322,45 @@ export default function AimeePage() {
         )}
       </section>
 
+      {!saved && showCard && extraction && !safetyFlagged && !cardMinimized && (
+        <div className="floating-card-shell">
+          <div className="floating-card-backdrop" onClick={() => setCardMinimized(true)} />
+          <div className="floating-card-panel">
+            <div className="extraction-container">
+              <ExtractionCard
+                extraction={extraction}
+                onConfirm={handleConfirm}
+                onEdit={handleEdit}
+                onAddFeeling={() => console.log('Add feeling')}
+                onAddNeed={() => console.log('Add need')}
+                onSkipNeed={() => console.log('Skip need')}
+                onSaveMemory={handleSaveMemory}
+                onClose={() => setCardMinimized(true)}
+                saving={saving}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input area */}
       <section className="input-section">
+        {!saved && showCard && extraction && !safetyFlagged && cardMinimized && (
+          <div className="composer-card-zone">
+            <button
+              className="minimized-card-indicator"
+              onClick={() => setCardMinimized(false)}
+            >
+              <div
+                className="minimized-dot"
+                style={{ background: EMOTION_COLORS[extraction.primary_emotion] }}
+              />
+              <span>Aimee noticed: {extraction.feeling}</span>
+              <span className="minimized-expand">Review</span>
+            </button>
+          </div>
+        )}
+
         <div className="input-area">
           <textarea
             className="chat-input"
@@ -449,7 +455,7 @@ export default function AimeePage() {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
-          padding: 1.5rem clamp(1.5rem, 5vw, 2rem);
+          padding: 1.5rem clamp(1.5rem, 5vw, 2rem) 10rem;
           max-width: 720px;
           margin: 0 auto;
           width: 100%;
@@ -459,6 +465,7 @@ export default function AimeePage() {
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
+          min-height: 0;
         }
 
         .message {
@@ -629,6 +636,41 @@ export default function AimeePage() {
         }
 
         /* Extraction container */
+        .composer-card-zone {
+          max-width: 720px;
+          margin: 0 auto 0.9rem;
+          width: 100%;
+        }
+
+        .floating-card-shell {
+          position: fixed;
+          inset: 0;
+          z-index: 12;
+          pointer-events: none;
+        }
+
+        .floating-card-backdrop {
+          position: absolute;
+          inset: 0;
+          background: rgba(247, 244, 239, 0.58);
+          backdrop-filter: blur(6px);
+          pointer-events: auto;
+        }
+
+        .floating-card-panel {
+          position: absolute;
+          left: 50%;
+          bottom: 7.5rem;
+          transform: translateX(-50%);
+          width: min(720px, calc(100vw - 2rem));
+          max-height: min(68vh, 760px);
+          overflow-y: auto;
+          border-radius: 28px;
+          pointer-events: auto;
+          overscroll-behavior: contain;
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+        }
+
         .extraction-container {
           animation: cardAppear 0.4s var(--ease-spring);
         }
@@ -638,20 +680,20 @@ export default function AimeePage() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.875rem 1.25rem;
+          justify-content: space-between;
+          padding: 0.85rem 1rem;
           background: var(--card);
           border: 1px solid var(--border);
-          border-radius: 16px;
+          border-radius: 18px;
           cursor: pointer;
           transition: all var(--duration-fast) var(--ease-soft);
           width: 100%;
-          max-width: 400px;
-          margin: 0 auto;
+          box-shadow: var(--shadow-sm);
         }
 
         .minimized-card-indicator:hover {
           background: var(--card-solid);
-          transform: translateY(-2px);
+          transform: translateY(-1px);
           box-shadow: var(--shadow-md);
         }
 
@@ -664,16 +706,19 @@ export default function AimeePage() {
 
         .minimized-card-indicator span:nth-child(2) {
           flex: 1;
-          font-size: 0.9rem;
+          font-size: 0.88rem;
           font-weight: 500;
           color: var(--text);
           text-transform: capitalize;
+          text-align: left;
         }
 
         .minimized-expand {
-          font-size: 1.25rem;
-          color: var(--text-muted);
-          font-weight: 300;
+          font-size: 0.76rem;
+          color: var(--accent);
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
         }
 
         /* Input */
@@ -682,6 +727,9 @@ export default function AimeePage() {
           border-top: 1px solid var(--border-subtle);
           background: var(--card);
           backdrop-filter: blur(20px);
+          position: sticky;
+          bottom: 0;
+          z-index: 9;
         }
 
         .input-area {
@@ -762,6 +810,12 @@ export default function AimeePage() {
             width: 32px;
             height: 32px;
             font-size: 0.8rem;
+          }
+
+          .floating-card-panel {
+            width: calc(100vw - 1rem);
+            bottom: 6.75rem;
+            max-height: 62vh;
           }
           
           .success-actions {

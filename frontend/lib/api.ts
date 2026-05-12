@@ -7,13 +7,19 @@ function trimTrailingSlash(value: string) {
 export const API_BASE_URL = trimTrailingSlash(DEFAULT_API_URL)
 
 export function apiUrl(path: string) {
-  // Proxy mode (web/ngrok): always prefix /api since Next.js rewrite maps /api/* → backend
-  if (!API_BASE_URL) {
-    const normalized = path.startsWith('/') ? path : `/${path}`
+  const normalized = path.startsWith('/') ? path : `/${path}`
+
+  // Browser requests in the web app should stay same-origin and let Next.js proxy
+  // them to the backend. This avoids direct browser calls to Docker-only hostnames.
+  if (typeof window !== 'undefined') {
     return `/api${normalized}`
   }
-  // Absolute URL mode (mobile/explicit env): use full URL
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+
+  if (!API_BASE_URL) {
+    return normalized
+  }
+
+  return `${API_BASE_URL}${normalized}`
 }
 
 export function wsUrl(path: string, token?: string) {

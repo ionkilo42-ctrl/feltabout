@@ -4,11 +4,18 @@
  * Feltabout Frontend Configuration
  * 
  * Environment variables:
- * - NEXT_PUBLIC_API_URL: API base URL (defaults to /api for proxy mode)
- * 
- * In Docker, NEXT_PUBLIC_API_URL is set to http://api:8000
- * In local dev without NEXT_PUBLIC_API_URL, uses Next.js rewrites to proxy /api/* to localhost:8000
+ * - NEXT_PUBLIC_API_URL: server-side backend target for proxy rewrites
+ *
+ * Browser requests should stay same-origin and use /api/*.
+ * In Docker, the Next server can reach the backend at http://api:8000.
+ * In host-side local dev, it should proxy to http://localhost:8000.
  */
+const proxyTarget =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'
+    : 'http://api:8000')
+
 const nextConfig = {
   output: 'standalone',
   experimental: {
@@ -17,28 +24,16 @@ const nextConfig = {
   
   // API URL configuration
   env: {
-    // Make NEXT_PUBLIC_API_URL available at build time
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '',
+    // Keep server-side target available when needed, but browser calls still use /api.
+    NEXT_PUBLIC_API_URL: proxyTarget,
   },
   
-  // Development/Docker proxy configuration
-  // Rewrites /api/* to the backend API for internal routing
+  // Proxy all browser /api/* requests through the Next.js server.
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    
-    // If API URL is explicitly set to localhost/empty proxy mode,
-    // use Next.js internal rewrites for /api/* routing
-    if (apiUrl && !apiUrl.startsWith('http://localhost') && !apiUrl.startsWith('http://127.0.0.1')) {
-      // External absolute URL mode (mobile/explicit env): use direct calls
-      return [];
-    }
-    
-    // Docker internal network or local dev proxy:
-    // Use Next.js rewrites to proxy /api/* to api service
     return [
       {
         source: '/api/:path*',
-        destination: 'http://api:8000/:path*',
+        destination: `${proxyTarget}/:path*`,
       },
     ];
   },
