@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ExtractionCard, { ExtractionData } from '../../components/v2/ExtractionCard'
@@ -53,6 +53,8 @@ function extractionToConfirm(
 
 export default function AimeePage() {
   const router = useRouter()
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const hasHydratedScrollRef = useRef(false)
   
   // Chat state - initialize with empty time for SSR hydration safety
   const [messages, setMessages] = useState<Array<{
@@ -106,6 +108,18 @@ export default function AimeePage() {
       )
     )
   }, [getTimeString])
+
+  useEffect(() => {
+    const behavior = hasHydratedScrollRef.current ? 'smooth' : 'auto'
+    hasHydratedScrollRef.current = true
+
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior,
+        block: 'end',
+      })
+    })
+  }, [messages, loading, extraction, showCard, cardMinimized, saved])
   
   const addMessage = useCallback((speaker: 'aimee' | 'user', text: string) => {
     setMessages(prev => [
@@ -287,6 +301,7 @@ export default function AimeePage() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} className="messages-end-anchor" />
         </div>
 
         {/* Success state */}
@@ -466,6 +481,11 @@ export default function AimeePage() {
           flex-direction: column;
           gap: 1.25rem;
           min-height: 0;
+        }
+
+        .messages-end-anchor {
+          height: 1px;
+          scroll-margin-bottom: 9.5rem;
         }
 
         .message {

@@ -33,6 +33,7 @@ from app.services import (
     FacilitationService,
     ExtractionService,
 )
+from app.services.ai_router import get_provider_name, get_model_name, get_provider_api_key
 from app.services.safety_service import check_safety, build_crisis_response
 
 
@@ -161,14 +162,15 @@ async def generate_plan(
         return build_crisis_response(safety_result.severity)
     
     # ── Internal extraction stage ──────────────────────────────────────────────
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-    OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    provider_name = get_provider_name()
+    provider_model = get_model_name(provider_name)
+    provider_api_key = get_provider_api_key(provider_name)
     
     extraction = ExtractionService()
     analysis = await extraction.analyze_with_fallback(
         reflection=reflection_dict,
-        api_key=OPENAI_API_KEY if OPENAI_API_KEY else None,
-        model=OPENAI_MODEL,
+        api_key=provider_api_key or None,
+        model=provider_model,
     )
     
     # Log memory candidate count
@@ -226,21 +228,21 @@ async def generate_plan(
     # ── Facilitation (Facilitation Engine) ───────────────────────────────────
     facilitation = FacilitationService()
     
-    if OPENAI_API_KEY:
+    if provider_api_key:
         plan_data = await facilitation.generate_with_analysis(
             reflection=reflection_dict,
             analysis=analysis_dict,
-            api_key=OPENAI_API_KEY,
-            model=OPENAI_MODEL,
+            api_key=provider_api_key,
+            model=provider_model,
         )
         metadata = {
             "prompt_version": "facilitation_mvp2_v1",
             "prompt_version_extraction": "extraction_v1",
-            "extraction_model": OPENAI_MODEL,
+            "extraction_model": provider_model,
             "analysis_confidence": 0.85,
             "memory_candidate_count": memory_candidate_count,
-            "model_provider": "openai",
-            "model_name": OPENAI_MODEL,
+            "model_provider": provider_name,
+            "model_name": provider_model,
             "generation_mode": "staged_extraction",
             "safety_version": "safety_rules_v1",
         }

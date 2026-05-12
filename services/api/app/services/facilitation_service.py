@@ -19,7 +19,7 @@ import json
 import os
 from typing import Optional
 
-from app.services.ai_router import get_ai_router, AIRouter
+from app.services.ai_router import get_ai_router, AIRouter, provider_has_key
 
 
 # ─── Config ────────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ class FacilitationService:
         prompt = self._build_facilitation_prompt(reflection)
         messages = [{"role": "user", "content": prompt}]
         
-        if (api_key and AI_PROVIDER == "openai") or OPENAI_API_KEY:
+        if api_key or provider_has_key():
             router = self.ai_router
             if api_key:
                 router = AIRouter(api_key=api_key, model=model)
@@ -103,7 +103,7 @@ class FacilitationService:
         prompt = self._build_analysis_aware_prompt(reflection, analysis)
         messages = [{"role": "user", "content": prompt}]
         
-        if (api_key and AI_PROVIDER == "openai") or OPENAI_API_KEY:
+        if api_key or provider_has_key():
             router = self.ai_router
             if api_key:
                 router = AIRouter(api_key=api_key, model=model)

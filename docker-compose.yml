@@ -52,6 +52,13 @@ services:
       # Override DATABASE_URL to use Docker network hostname
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-feltabout}:${POSTGRES_PASSWORD:-change-me-in-prod}@postgres:5432/${POSTGRES_DB:-feltabout}
       USE_AUTH: ${USE_AUTH:-false}
+      # AI provider defaults mirror the current local MiniMax setup.
+      AI_PROVIDER: ${AI_PROVIDER:-minimax}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      MINIMAX_BASE_URL: ${MINIMAX_BASE_URL:-https://api.minimax.io/v1}
+      MINIMAX_MODEL: ${MINIMAX_MODEL:-MiniMax-M2.7}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ENABLE_MVP2_BACKEND_BRIDGE: "false"
     ports:
       - "8000:8000"

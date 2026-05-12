@@ -92,7 +92,11 @@ Important variables:
 | `POSTGRES_PASSWORD` | `change-me-in-prod` | Change before any deployed environment. |
 | `USE_AUTH` | `false` | Local dev mode. Set `true` for production-like auth. |
 | `JWT_SECRET` | dev placeholder | Must be strong when `USE_AUTH=true`. |
-| `OPENAI_API_KEY` | empty | Empty uses local fallback generation. |
+| `AI_PROVIDER` | `minimax` | Active Docker default provider. |
+| `MINIMAX_API_KEY` | empty | Required for live MiniMax generation in Docker. |
+| `MINIMAX_BASE_URL` | `https://api.minimax.io/v1` | Current MiniMax API host. |
+| `MINIMAX_MODEL` | `MiniMax-M2.7` | Current MiniMax model default. |
+| `OPENAI_API_KEY` | empty | Optional alternate provider; empty falls back locally if MiniMax is also unset. |
 | `NEXT_PUBLIC_API_URL` | `http://api:8000` | Docker internal API URL for frontend rewrites. |
 | `EMAIL_ENABLED` | `false` | Email delivery is not implemented in MVP 1; magic links are local/dev only. |
 | `ALLOWED_ORIGINS` | localhost origins | Set explicit deployed frontend origins before launch. |

@@ -7,6 +7,7 @@ Tests the core trust promise: AI can suggest, user confirms, only confirmed data
 import os
 import sys
 from pathlib import Path
+import types
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -16,6 +17,7 @@ from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.db.session import init_db
+from app.services import ai_router as ai_router_module
 
 
 @pytest.fixture
@@ -176,6 +178,107 @@ async def test_chat_name_only_input_stays_grounded(client):
     assert "hurt" not in reply
     assert "feeling" not in reply
     assert "john" in reply
+
+
+@pytest.mark.asyncio
+async def test_chat_does_not_treat_im_just_as_a_name_intro(client, monkeypatch):
+    """Conversational text starting with I'm should not be treated as a name-only intro."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    payload = {"message": "I'm just thinking through my feelings."}
+
+    resp = await client.post("/v2/aimee/chat", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    reply = data["reply"].lower()
+    assert "hi just" not in reply
+    assert "what would you like help thinking through today" not in reply
+
+
+@pytest.mark.asyncio
+async def test_extract_does_not_infer_sadness_from_negated_sadness(client, monkeypatch):
+    """Negated sadness should not create a fake sadness extraction in fallback mode."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    payload = {"text": "Bro, I'm not sad."}
+
+    resp = await client.post("/v2/aimee/extract", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    assert data["feelings"] == []
+    assert data["suggested_memory_title"] == ""
+
+
+@pytest.mark.asyncio
+async def test_chat_does_not_reply_with_hurt_for_negated_sadness(client, monkeypatch):
+    """Negated sadness should not trigger the fallback hurt reply."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    payload = {"message": "Bro, I'm not sad."}
+
+    resp = await client.post("/v2/aimee/chat", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    reply = data["reply"].lower()
+    assert "sense of hurt" not in reply
+    assert "closest to how you're feeling" not in reply
+
+
+@pytest.mark.asyncio
+async def test_v2_chat_uses_shared_minimax_router_not_openai_sdk(client, monkeypatch):
+    """The v2 chat endpoint should use the shared MiniMax router path, not the OpenAI SDK."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "test-minimax-key")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+    monkeypatch.setenv("MINIMAX_MODEL", "MiniMax-M2.7")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    async def fake_generate(self, messages, max_tokens=1000):
+        return "Use the shared router."
+
+    monkeypatch.setattr(ai_router_module.AIRouter, "generate", fake_generate)
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("openai SDK should not be used for v2 chat"))))
+
+    resp = await client.post("/v2/aimee/chat", json={"message": "I'm planning two chats today."})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["safety_status"] == "safe"
+    assert data["reply"] == "Use the shared router."
+
+
+@pytest.mark.asyncio
+async def test_v2_extract_uses_shared_minimax_router_not_openai_sdk(client, monkeypatch):
+    """The v2 extract endpoint should use the shared MiniMax router path, not the OpenAI SDK."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "test-minimax-key")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+    monkeypatch.setenv("MINIMAX_MODEL", "MiniMax-M2.7")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    async def fake_generate(self, messages, max_tokens=1000):
+        return (
+            '{"feelings":[{"primary_emotion":"fear","label":"worried","intensity":6,"confidence":0.9,'
+            '"entities":[],"topics":[],"needs":[{"name":"clarity","status":"identified"}]}],'
+            '"suggested_memory_title":"Worried about upcoming chats",'
+            '"suggested_response":"That sounds like a lot to hold.",'
+            '"safety_status":"safe"}'
+        )
+
+    monkeypatch.setattr(ai_router_module.AIRouter, "generate", fake_generate)
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("openai SDK should not be used for v2 extract"))))
+
+    resp = await client.post("/v2/aimee/extract", json={"text": "I'm preparing for a couple of chats."})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["safety_status"] == "safe"
+    assert data["feelings"][0]["primary_emotion"] == "fear"
 
 
 # ─── Confirm Endpoint Tests ───────────────────────────────────────────────────

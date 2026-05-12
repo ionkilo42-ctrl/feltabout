@@ -4,12 +4,12 @@ Aimee proposes emotional meaning from free-form text.
 User confirms. Only confirmed data gets saved.
 """
 
-import os
 import json
 import re
 from typing import Optional
 
 from pydantic import ValidationError
+from app.services.ai_router import get_ai_router, provider_has_key
 
 from app.schemas.v2.aimee import (
     ExtractionRequest,
@@ -28,7 +28,7 @@ from app.schemas.v2.aimee import (
 
 LOW_SIGNAL_PATTERNS = [
     re.compile(r"^\s*(hi|hello|hey|yo|sup|good morning|good afternoon|good evening)[.!?\s]*$", re.IGNORECASE),
-    re.compile(r"^\s*(i('| a)?m|i am)\s+[a-z][a-z '-]{0,40}[.!?\s]*$", re.IGNORECASE),
+    re.compile(r"^\s*(i('| a)?m|i am)\s+[a-z][a-z'-]{0,30}[.!?\s]*$", re.IGNORECASE),
     re.compile(r"^\s*(my name is|name'?s)\s+[a-z][a-z '-]{0,40}[.!?\s]*$", re.IGNORECASE),
 ]
 
@@ -36,7 +36,7 @@ LOW_SIGNAL_PATTERNS = [
 def _extract_intro_name(text: str) -> Optional[str]:
     """Return a first-name-like token from a simple introduction."""
     match = re.match(
-        r"^\s*(?:hi[,!\s]*)?(?:i(?:'| a)?m|i am|my name is|name'?s)\s+([a-z][a-z'-]{0,30})\b",
+        r"^\s*(?:hi[,!\s]*)?(?:i(?:'| a)?m|i am|my name is|name'?s)\s+([a-z][a-z'-]{0,30})[.!?\s]*$",
         text,
         re.IGNORECASE,
     )
@@ -48,6 +48,18 @@ def _extract_intro_name(text: str) -> Optional[str]:
         return None
 
     return name[:1].upper() + name[1:].lower()
+
+
+def _has_unnegated_keyword(text: str, keywords: list[str]) -> bool:
+    """Return true when any keyword appears without a simple local negation."""
+    for keyword in keywords:
+        pattern = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)
+        for match in pattern.finditer(text):
+            prefix = text[max(0, match.start() - 12):match.start()].lower()
+            if re.search(r"(?:\bnot\s+|n't\s+)$", prefix):
+                continue
+            return True
+    return False
 
 
 def _is_low_signal_input(text: str) -> bool:
@@ -138,19 +150,15 @@ async def extract_emotions(request: ExtractionRequest) -> ExtractionResponse:
             safety_status="safe",
         )
     
-    # Step 2: Try AI extraction (MiniMax or OpenAI)
-    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    
-    if api_key:
-        return await _extract_with_openai(request.text)
+    # Step 2: Try AI extraction through the shared provider router.
+    if provider_has_key():
+        return await _extract_with_router(request.text)
     else:
         return _extract_with_mock(request.text)
 
 
-async def _extract_with_openai(text: str) -> ExtractionResponse:
-    """Extract emotions using MiniMax (OpenAI-compatible API)."""
-    import openai
-    
+async def _extract_with_router(text: str) -> ExtractionResponse:
+    """Extract emotions using the shared AI router."""
     system_prompt = """You are Aimee, a feelings guide. You help people understand their emotions.
 
 For each text, identify:
@@ -190,27 +198,17 @@ Example format:
   "suggested_response": "That frustration seems connected to your need for fairness. Does that resonate?"
 }"""
 
-    # Use MiniMax endpoint if configured, otherwise fallback
-    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
-    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    model = os.environ.get("MINIMAX_MODEL", "MiniMax-Text-01")
-    
     try:
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
+        router = get_ai_router()
+        content = await router.generate(
+            [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text}
+                {"role": "user", "content": text},
             ],
-            response_format={"type": "json_object"},
-            temperature=0.7,
+            max_tokens=1000,
         )
-        
-        result = json.loads(response.choices[0].message.content)
+
+        result = json.loads(content)
         
         # Parse into Pydantic models
         feelings = []
@@ -239,7 +237,7 @@ Example format:
         )
     except Exception as e:
         # Log error for debugging
-        print(f"MINIMAX ERROR: {type(e).__name__}: {e}")
+        print(f"AI EXTRACTION ERROR: {type(e).__name__}: {e}")
         # Fallback to mock on error
         return _extract_with_mock(text)
 
@@ -262,7 +260,7 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
     response = "Thank you for sharing that with me."
     
     # Detect emotion keywords
-    if any(w in text_lower for w in ["angry", "frustrated", "mad", "annoyed"]):
+    if _has_unnegated_keyword(text, ["angry", "frustrated", "mad", "annoyed"]):
         feelings.append(ExtractedFeeling(
             primary_emotion="anger",
             label="frustrated",
@@ -274,7 +272,7 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         ))
         title = "Feeling frustrated"
         response = "That frustration makes sense. What's behind it?"
-    elif any(w in text_lower for w in ["sad", "hurt", "disappointed", "lonely"]):
+    elif _has_unnegated_keyword(text, ["sad", "hurt", "disappointed", "lonely"]):
         feelings.append(ExtractedFeeling(
             primary_emotion="sadness",
             label="hurt",
@@ -286,7 +284,7 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         ))
         title = "Feeling sad"
         response = "I hear the sadness in what you're sharing."
-    elif any(w in text_lower for w in ["happy", "joy", "excited", "grateful"]):
+    elif _has_unnegated_keyword(text, ["happy", "joy", "excited", "grateful"]):
         feelings.append(ExtractedFeeling(
             primary_emotion="joy",
             label="happy",
@@ -298,7 +296,7 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         ))
         title = "Feeling joyful"
         response = "It's wonderful that you're feeling this way!"
-    elif any(w in text_lower for w in ["scared", "afraid", "worried", "anxious"]):
+    elif _has_unnegated_keyword(text, ["scared", "afraid", "worried", "anxious"]):
         feelings.append(ExtractedFeeling(
             primary_emotion="fear",
             label="anxious",
@@ -310,7 +308,7 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         ))
         title = "Feeling anxious"
         response = "That anxiety is telling you something. What would help you feel safer?"
-    elif any(w in text_lower for w in ["disgusted", "gross", "ew", "ugh"]):
+    elif _has_unnegated_keyword(text, ["disgusted", "gross", "ew", "ugh"]):
         feelings.append(ExtractedFeeling(
             primary_emotion="disgust",
             label="disgusted",
@@ -323,18 +321,13 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         title = "Feeling disgusted"
         response = "That reaction makes sense given what you're experiencing."
     else:
-        # Default fallback
-        feelings.append(ExtractedFeeling(
-            primary_emotion="sadness",
-            label="uncertain",
-            intensity=5.0,
-            confidence=0.5,
-            entities=[],
-            topics=[ExtractedTopic(title="general")],
-            needs=[ExtractedNeed(name="clarity", status=NeedStatus.UNKNOWN)],
-        ))
-        title = "Emotional moment"
-        response = "Thank you for sharing. Let's explore what you're feeling."
+        # Thin or ambiguous input should not fabricate an emotion.
+        return ExtractionResponse(
+            feelings=[],
+            suggested_memory_title="",
+            suggested_response="",
+            safety_status="safe",
+        )
     
     return ExtractionResponse(
         feelings=feelings,
@@ -400,41 +393,27 @@ Remember: you are a guide for reflection, not a therapist or advisor."""
         messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": request.message})
     
-    # Step 3: Try AI chat (MiniMax or mock)
-    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    
-    if api_key:
-        return await _chat_with_openai(messages, request.message)
+    # Step 3: Try AI chat through the shared provider router.
+    if provider_has_key():
+        return await _chat_with_router(messages, request.message)
     else:
         return _chat_with_mock(request.message)
 
 
-async def _chat_with_openai(
+async def _chat_with_router(
     messages: list[dict],
     original_message: str,
 ) -> ChatResponse:
-    """Chat using MiniMax (OpenAI-compatible API)."""
-    import openai
-    
-    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
-    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    model = os.environ.get("MINIMAX_MODEL", "MiniMax-Text-01")
-    
+    """Chat using the shared AI router."""
     try:
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url=base_url
+        router = get_ai_router()
+        reply = await router.generate(
+            messages,
+            max_tokens=1000,
         )
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.8,
-        )
-        
-        reply = response.choices[0].message.content.strip()
-        return ChatResponse(reply=reply, safety_status="safe")
+        return ChatResponse(reply=reply.strip(), safety_status="safe")
     except Exception as e:
-        print(f"MINIMAX CHAT ERROR: {type(e).__name__}: {e}")
+        print(f"AI CHAT ERROR: {type(e).__name__}: {e}")
         return _chat_with_mock(original_message)
 
 
@@ -446,15 +425,15 @@ def _chat_with_mock(message: str) -> ChatResponse:
         return ChatResponse(reply=_build_low_signal_chat_reply(message), safety_status="safe")
     
     # Warm, reflective responses
-    if any(w in text_lower for w in ["angry", "frustrated", "mad", "annoyed"]):
+    if _has_unnegated_keyword(message, ["angry", "frustrated", "mad", "annoyed"]):
         reply = "That frustration sounds heavy. What's underneath it, if you feel like saying more?"
-    elif any(w in text_lower for w in ["sad", "hurt", "disappointed", "lonely"]):
+    elif _has_unnegated_keyword(message, ["sad", "hurt", "disappointed", "lonely"]):
         reply = "I hear that sense of hurt. Take your time — what's closest to how you're feeling right now?"
-    elif any(w in text_lower for w in ["happy", "joy", "excited", "grateful"]):
+    elif _has_unnegated_keyword(message, ["happy", "joy", "excited", "grateful"]):
         reply = "That's really lovely to hear. What made this moment feel especially good?"
-    elif any(w in text_lower for w in ["scared", "afraid", "worried", "anxious"]):
+    elif _has_unnegated_keyword(message, ["scared", "afraid", "worried", "anxious"]):
         reply = "Anxiety can feel like a lot. What's the part that's weighing on you most?"
-    elif any(w in text_lower for w in ["disgusted", "gross", "ew", "ugh"]):
+    elif _has_unnegated_keyword(message, ["disgusted", "gross", "ew", "ugh"]):
         reply = "That reaction makes sense. What was it about the situation that felt off?"
     elif any(w in text_lower for w in ["help", "advice", "should i"]):
         reply = "I'm not here to give advice, but I'm happy to listen. What's going on?"
