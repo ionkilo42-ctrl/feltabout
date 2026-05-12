@@ -23,13 +23,15 @@ interface Participant {
   is_aimee: boolean
 }
 
+// Aimee's welcome message
+const AIME_WELCOME = "I'm here with both of you. Start with what you want the other person to understand, and I'll help keep this clear and respectful."
+
 export default function SharedSessionPage() {
   const params = useParams()
   const router = useRouter()
   const spaceId = params.id as string
 
   const participant = useParticipantStore((s) => s.participant)
-  const setParticipant = useParticipantStore((s) => s.setParticipant)
 
   const [messages, setMessages] = useState<Message[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -45,6 +47,7 @@ export default function SharedSessionPage() {
 
   const currentParticipant = participant
   const displayName = currentParticipant?.displayName || 'Guest'
+  const isOwner = currentParticipant?.isOwner || false
 
   // Fetch participants and initial messages
   useEffect(() => {
@@ -95,7 +98,6 @@ export default function SharedSessionPage() {
       }
     }
 
-    // Poll every 3 seconds
     pollingRef.current = setInterval(pollMessages, 3000)
 
     return () => {
@@ -132,7 +134,6 @@ export default function SharedSessionPage() {
         throw new Error('Failed to send message')
       }
 
-      // Refresh messages after sending
       const msgsRes = await fetch(apiUrl(`/conversation-spaces/${spaceId}/messages`))
       if (msgsRes.ok) {
         const msgsData = await msgsRes.json()
@@ -154,407 +155,133 @@ export default function SharedSessionPage() {
       setShowCopied(true)
       setTimeout(() => setShowCopied(false), 2000)
     } catch {
-      // Fallback: select the text
       prompt('Copy this link to share:', inviteUrl)
     }
   }
 
+  // Show Aimee's welcome if no messages exist
+  const showWelcome = messages.length === 0 && !isLoading
+
   if (isLoading) {
     return (
-      <main className="session-page">
-        <div className="loading">
-          <div className="spinner"></div>
-          <p>Loading session...</p>
+      <main className="shared-session-page">
+        <div className="shared-session-shell">
+          <div className="session-loading">
+            <div className="debrief-loading-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
         </div>
-        <style>{styles}</style>
       </main>
     )
   }
 
   if (error) {
     return (
-      <main className="session-page">
-        <div className="error-state">
-          <h2>Session unavailable</h2>
-          <p>{error}</p>
-          <Link href="/" className="btn-secondary">
-            Go home
-          </Link>
+      <main className="shared-session-page">
+        <div className="shared-session-shell">
+          <div className="session-error card">
+            <h2>Session unavailable</h2>
+            <p>{error}</p>
+            <Link href="/" className="btn-secondary">Go home</Link>
+          </div>
         </div>
-        <style>{styles}</style>
       </main>
     )
   }
 
   return (
-    <main className="session-page">
-      {/* Header */}
-      <header className="session-header">
-        <Link href="/" className="brand-lockup">
-          <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-        </Link>
-        <div className="session-title">
-          <span className="live-dot"></span>
-          Shared Session
-        </div>
-        {inviteToken && (
-          <button className="share-btn" onClick={copyInviteLink}>
-            {showCopied ? '✓ Copied!' : 'Share'}
-          </button>
-        )}
-      </header>
-
-      {/* Participants bar */}
-      <div className="participants-bar">
-        {participants.map((p) => (
-          <div
-            key={p.id}
-            className={`participant-badge ${p.is_aimee ? 'aimee' : ''}`}
-          >
-            <span className="participant-avatar">
-              {p.is_aimee ? '✨' : p.display_name.charAt(0).toUpperCase()}
-            </span>
-            <span className="participant-name">
-              {p.display_name}
-              {p.is_owner && ' (host)'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Messages */}
-      <div className="messages-container">
-        <div className="messages-list">
-          {messages.length === 0 ? (
-            <div className="empty-state">
-              <p>No messages yet. Start the conversation!</p>
+    <main className="shared-session-page">
+      <div className="shared-session-shell">
+        {/* Header */}
+        <header className="shared-session-header card">
+          <div className="header-left">
+            <Link href="/" className="brand-lockup">
+              <img className="brand-mark-sm" src="/logo.png" alt="Feltabout" />
+            </Link>
+            <div className="header-titles">
+              <h1 className="session-title">Shared session</h1>
+              <p className="session-subtitle">Aimee is here to help both people understand each other.</p>
             </div>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`message ${msg.is_aimee ? 'aimee' : ''} ${msg.sender_name === displayName ? 'own' : ''}`}
-              >
-                <div className="message-header">
-                  <span className="message-sender">
-                    {msg.is_aimee ? '✨ Aimee' : msg.sender_name}
+          </div>
+          {inviteToken && (
+            <button className="btn-secondary small" onClick={copyInviteLink}>
+              {showCopied ? '✓ Copied!' : 'Share invite'}
+            </button>
+          )}
+        </header>
+
+        {/* Participant chips */}
+        <div className="session-participants">
+          {participants.map((p) => (
+            <div
+              key={p.id}
+              className={`participant-chip ${p.is_aimee ? 'aimee' : ''} ${p.display_name === displayName ? 'you' : ''}`}
+            >
+              <span className="chip-avatar">
+                {p.is_aimee ? '✨' : p.display_name.charAt(0).toUpperCase()}
+              </span>
+              <span className="chip-name">
+                {p.display_name}
+                {p.is_owner && ' (host)'}
+                {p.is_aimee && ' (facilitator)'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Conversation card */}
+        <section className="shared-room card-elevated">
+          {/* Messages */}
+          <div className="messages shared-messages">
+            {showWelcome && (
+              <div className="message facilitator">
+                <div className="msg-text">{AIME_WELCOME}</div>
+              </div>
+            )}
+            {messages.map((msg) => {
+              const isOwn = msg.sender_name === displayName
+              const isAimee = msg.is_aimee
+              
+              return (
+                <div
+                  key={msg.id}
+                  className={`message ${isAimee ? 'facilitator' : isOwn ? 'speaker-b' : 'speaker-a'}`}
+                >
+                  <span className="msg-speaker">
+                    {isAimee ? '✨ Aimee' : msg.sender_name}
+                    {isOwn && ' (you)'}
                   </span>
-                  <span className="message-time">
+                  <div className="msg-text">{msg.content}</div>
+                  <span className="msg-time">
                     {new Date(msg.created_at).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
                   </span>
                 </div>
-                <div className="message-content">{msg.content}</div>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+              )
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input area */}
+          <form className="input-area shared-input" onSubmit={sendMessage}>
+            <input
+              type="text"
+              placeholder="Say what you want them to understand…"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              disabled={isTyping}
+            />
+            <button type="submit" className="send-btn" disabled={!newMessage.trim() || isTyping}>
+              {isTyping ? '...' : 'Send'}
+            </button>
+          </form>
+        </section>
       </div>
-
-      {/* Message input */}
-      <form className="message-input-form" onSubmit={sendMessage}>
-        <input
-          type="text"
-          placeholder="Type a message..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          disabled={isTyping}
-        />
-        <button type="submit" disabled={!newMessage.trim() || isTyping}>
-          {isTyping ? '...' : 'Send'}
-        </button>
-      </form>
-
-      <style>{styles}</style>
     </main>
   )
 }
-
-const styles = `
-.session-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--page-bg, #FAF9F7);
-}
-
-.loading, .error-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-}
-
-.error-state h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text, #111827);
-  margin: 0;
-}
-
-.error-state p {
-  color: var(--text-muted, #6b7280);
-  margin: 0;
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border, #e5e7eb);
-  border-top-color: var(--accent, #e07a5f);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Header */
-.session-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  background: white;
-}
-
-.brand-lockup {
-  display: inline-flex;
-}
-
-.brand-mark {
-  height: 24px;
-  width: auto;
-}
-
-.session-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text, #111827);
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  background: #22c55e;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.share-btn {
-  padding: 0.5rem 1rem;
-  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
-  border: none;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-
-.share-btn:hover {
-  transform: scale(1.05);
-}
-
-/* Participants bar */
-.participants-bar {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  background: var(--card, #fafafa);
-  overflow-x: auto;
-}
-
-.participant-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  background: white;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.participant-badge.aimee {
-  background: linear-gradient(135deg, #33d6c8, #e07a5f);
-  border-color: transparent;
-  color: white;
-}
-
-.participant-avatar {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--hover-bg, #f3f4f6);
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.aimee .participant-avatar {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.participant-name {
-  font-weight: 500;
-}
-
-/* Messages */
-.messages-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem;
-}
-
-.messages-list {
-  max-width: 720px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-muted, #6b7280);
-}
-
-.empty-state p {
-  margin: 0;
-}
-
-.message {
-  max-width: 80%;
-  padding: 1rem;
-  background: white;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 16px;
-  border-bottom-left-radius: 4px;
-}
-
-.message.own {
-  align-self: flex-end;
-  background: var(--gradient-core);
-  color: white;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 4px;
-}
-
-.message.aimee {
-  background: linear-gradient(135deg, rgba(51, 214, 200, 0.1), rgba(224, 122, 95, 0.1));
-  border-color: rgba(51, 214, 200, 0.3);
-}
-
-.message-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.message-sender {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-secondary, #374151);
-}
-
-.message.aimee .message-sender {
-  color: var(--accent, #e07a5f);
-}
-
-.message.own .message-sender {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.message-time {
-  font-size: 0.7rem;
-  color: var(--text-quiet, #9ca3af);
-}
-
-.message.own .message-time {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.message-content {
-  font-size: 0.95rem;
-  line-height: 1.55;
-  white-space: pre-wrap;
-}
-
-/* Message input */
-.message-input-form {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border, #e5e7eb);
-  background: white;
-}
-
-.message-input-form input {
-  flex: 1;
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  background: var(--card, #fafafa);
-}
-
-.message-input-form input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-}
-
-.message-input-form button {
-  padding: 0.875rem 1.5rem;
-  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
-  border: none;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.message-input-form button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.25rem;
-  background: white;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-secondary, #374151);
-  text-decoration: none;
-  cursor: pointer;
-}
-`

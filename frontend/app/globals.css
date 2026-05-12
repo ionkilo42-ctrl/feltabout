@@ -2309,3 +2309,196 @@ textarea:focus {
     min-height: 140px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED SESSION - Full page conversation room
+   ═══════════════════════════════════════════════════════════ */
+
+.shared-session-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 2rem clamp(1rem, 4vw, 2rem);
+}
+
+.shared-session-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Header */
+.shared-session-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.brand-mark-sm {
+  height: 28px;
+  width: auto;
+}
+
+.header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.session-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.session-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  font-style: italic;
+}
+
+/* Participants */
+.session-participants {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.participant-chip.aimee {
+  background: var(--gradient-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.chip-avatar {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover-bg);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.aimee .chip-avatar {
+  background: rgba(51, 214, 200, 0.2);
+}
+
+.chip-name {
+  font-weight: 500;
+}
+
+/* Conversation room */
+.shared-room {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 280px);
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+}
+
+/* Messages */
+.shared-messages {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 300px;
+  max-height: calc(100vh - 380px);
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Input area */
+.shared-input {
+  margin: 0 1.5rem 1.5rem;
+  border-radius: 20px;
+}
+
+.shared-input input {
+  flex: 1;
+  min-height: 48px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.shared-input input:focus {
+  box-shadow: none;
+}
+
+/* Loading state */
+.session-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.session-error {
+  max-width: 400px;
+  margin: 4rem auto;
+  padding: 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.session-error h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.session-error p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .shared-session-page {
+    padding: 1rem;
+  }
+
+  .shared-session-header {
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .shared-messages {
+    padding: 1rem 1.25rem;
+  }
+
+  .shared-input {
+    margin: 0 1rem 1rem;
+  }
+
+  .message {
+    max-width: 90%;
+  }
+}
