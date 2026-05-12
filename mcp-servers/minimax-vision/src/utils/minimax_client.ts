@@ -15,6 +15,14 @@ export interface AnalyzeImageOptions {
   prompt?: string;
 }
 
+function sanitizeResponse(response: string): string {
+  // Remove thinking tags and their content
+  let cleaned = response.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
 function getConfig(): { apiKey: string; baseUrl: string; model: string } {
   const apiKey = process.env.MINIMAX_API_KEY;
   if (!apiKey) {
@@ -22,7 +30,7 @@ function getConfig(): { apiKey: string; baseUrl: string; model: string } {
   }
 
   const baseUrl = process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1";
-  const model = process.env.MINIMAX_MODEL || "MiniMax-VL-01";
+  const model = process.env.MINIMAX_MODEL || "MiniMax-M2.7";
 
   return { apiKey, baseUrl, model };
 }
@@ -38,6 +46,34 @@ function readImageAsBase64(imagePath: string): string {
 
   const buffer = fs.readFileSync(absolutePath);
   return buffer.toString("base64");
+}
+
+function isUrl(input: string): boolean {
+  return input.startsWith("http://") || input.startsWith("https://");
+}
+
+async function fetchImageAsBase64(imageUrl: string): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return buffer.toString("base64");
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch image from URL: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export async function getImageAsBase64(input: string): Promise<string> {
+  if (isUrl(input)) {
+    return fetchImageAsBase64(input);
+  }
+  return readImageAsBase64(input);
 }
 
 function getMimeType(imagePath: string): string {
@@ -79,6 +115,29 @@ Provide a concise analysis with these sections:
 
 Be specific and technical. Focus on practical debugging information.`;
 
+function getMimeTypeFromUrl(url: string): string {
+  // For URLs, try to extract extension from URL path
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const ext = path.extname(pathname).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".bmp": "image/bmp",
+    };
+    if (mimeTypes[ext]) {
+      return mimeTypes[ext];
+    }
+  } catch {
+    // Fall through to default
+  }
+  return "image/jpeg";
+}
+
 export async function analyzeImageWithMinimax(
   options: AnalyzeImageOptions
 ): Promise<string> {
@@ -87,8 +146,8 @@ export async function analyzeImageWithMinimax(
 
   const client = new OpenAI({ apiKey, baseURL: baseUrl });
 
-  const base64Image = readImageAsBase64(imagePath);
-  const mimeType = getMimeType(imagePath);
+  const base64Image = await getImageAsBase64(imagePath);
+  const mimeType = isUrl(imagePath) ? getMimeTypeFromUrl(imagePath) : getMimeType(imagePath);
   const analysisPrompt = prompt || DEFAULT_ANALYSIS_PROMPT;
 
   try {
@@ -106,7 +165,6 @@ export async function analyzeImageWithMinimax(
               type: "image_url",
               image_url: {
                 url: `data:${mimeType};base64,${base64Image}`,
-                detail: "high",
               },
             },
           ],
@@ -121,7 +179,7 @@ export async function analyzeImageWithMinimax(
       throw new Error("Empty response from MiniMax API");
     }
 
-    return result;
+    return sanitizeResponse(result);
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`MiniMax API error: ${error.message}`);

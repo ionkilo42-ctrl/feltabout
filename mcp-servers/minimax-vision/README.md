@@ -68,16 +68,24 @@ Once configured in Cline, use the `analyze_image` tool:
 ```
 analyze_image with:
 {
-  "image_path": "/path/to/screenshot.png",
+  "image_path": "/path/to/screenshot.png",  // or https://example.com/image.png
   "prompt": "Focus on finding CSS grid issues"  // optional
 }
 ```
 
-### Example
+### Examples
 
+**Local file:**
 ```json
 {
   "image_path": "./frontend/public/screenshot.png"
+}
+```
+
+**Remote URL:**
+```json
+{
+  "image_path": "https://example.com/path/to/image.png"
 }
 ```
 

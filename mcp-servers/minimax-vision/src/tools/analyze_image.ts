@@ -20,14 +20,14 @@ This tool is useful for:
 - Reviewing UI designs
 
 Arguments:
-- image_path: Path to the image file (absolute or relative to working directory)
+- image_path: Path or URL to the image file (absolute file path, relative path, or https:// URL)
 - prompt: Optional custom prompt to guide the analysis`,
   inputSchema: {
     type: "object",
     properties: {
       image_path: {
         type: "string",
-        description: "Path to the image file to analyze",
+        description: "Path or URL to the image file to analyze (file path or https:// URL)",
       },
       prompt: {
         type: "string",
