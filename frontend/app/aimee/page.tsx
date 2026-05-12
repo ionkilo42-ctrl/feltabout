@@ -7,6 +7,7 @@ import ExtractionCard, { ExtractionData } from '../../components/v2/ExtractionCa
 import {
   extractWithAimee,
   confirmAimeeExtraction,
+  chatWithAimee,
   ExtractionResponse,
   ConfirmRequest,
   EMOTION_COLORS,
@@ -141,26 +142,50 @@ export default function AimeePage() {
     setCardMinimized(false)
     
     try {
-      const response = await extractWithAimee(text)
-      
-      if (response.safety_status === 'flagged') {
-        // Safety flagged - show supportive message only
+      // Build conversation context from recent messages (last 8)
+      const conversationContext = messages
+        .slice(-8)
+        .map((msg) => `${msg.speaker === 'user' ? 'User' : 'Aimee'}: ${msg.text}`)
+        .join('\n')
+
+      // 1. First: get a real conversational Aimee reply
+      const chatResponse = await chatWithAimee(text, conversationContext)
+      addMessage('aimee', chatResponse.reply)
+
+      // Handle safety flagged from chat
+      if (chatResponse.safety_status === 'flagged') {
         setSafetyFlagged(true)
-        setSafetyMessage(response.suggested_response)
-        addMessage('aimee', response.suggested_response)
-      } else if (response.feelings.length > 0) {
-        // Safe - show extraction card
-        const extractionData = apiToExtractionData(response)
-        setExtraction(extractionData)
-        addMessage('aimee', response.suggested_response)
+        setSafetyMessage(chatResponse.reply)
+        setExtraction(null)
+        setShowCard(false)
       } else {
-        // No feelings extracted
-        addMessage('aimee', "Thank you for sharing. I'm not quite sure what you're feeling yet. Could you tell me more?")
+        // 2. Second: quietly try extraction so the memory card can still work
+        try {
+          const extractionResponse = await extractWithAimee(text)
+
+          if (extractionResponse.safety_status === 'flagged') {
+            setSafetyFlagged(true)
+            setSafetyMessage(extractionResponse.suggested_response)
+            setExtraction(null)
+            setShowCard(false)
+          } else if (extractionResponse.feelings.length > 0) {
+            const extractionData = apiToExtractionData(extractionResponse)
+            setExtraction(extractionData)
+            setShowCard(true)
+          } else {
+            setExtraction(null)
+            setShowCard(false)
+          }
+        } catch (extractErr) {
+          console.warn('Extraction failed, but chat succeeded:', extractErr)
+          setExtraction(null)
+          setShowCard(false)
+        }
       }
     } catch (err) {
-      console.error('Extraction error:', err)
-      setError('Something went wrong. Please try again.')
-      addMessage('aimee', "I'm having trouble processing that. Let's try again.")
+      console.error('Aimee chat error:', err)
+      setError('Aimee had trouble responding. Please try again.')
+      addMessage('aimee', "I'm having trouble responding right now. Can you try again in a moment?")
     } finally {
       setLoading(false)
     }

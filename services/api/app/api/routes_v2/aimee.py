@@ -13,8 +13,10 @@ from app.schemas.v2.aimee import (
     ExtractionResponse,
     ConfirmRequest,
     ConfirmResponse,
+    ChatRequest,
+    ChatResponse,
 )
-from app.services.v2.aimee_service import extract_emotions, confirm_extraction
+from app.services.v2.aimee_service import extract_emotions, confirm_extraction, chat_with_aimee
 
 router = APIRouter(prefix="/v2/aimee", tags=["v2-aimee"])
 
@@ -59,3 +61,19 @@ async def confirm(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to save memory")
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Free-form conversational chat with Aimee.
+    
+    This is Aimee's guide voice - warm, listening, asking questions.
+    Safety check runs first. Crisis input returns crisis response.
+    
+    Returns conversational reply, not structured extraction.
+    """
+    return await chat_with_aimee(request)

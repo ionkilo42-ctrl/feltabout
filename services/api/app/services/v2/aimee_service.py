@@ -20,6 +20,8 @@ from app.schemas.v2.aimee import (
     ConfirmRequest,
     ConfirmResponse,
     NeedStatus,
+    ChatRequest,
+    ChatResponse,
 )
 
 
@@ -269,6 +271,111 @@ def _extract_with_mock(text: str) -> ExtractionResponse:
         suggested_response=response,
         safety_status="safe",
     )
+
+
+# ─── Conversational Chat ──────────────────────────────────────────────────────
+
+async def chat_with_aimee(request: ChatRequest) -> ChatResponse:
+    """
+    Free-form conversational chat with Aimee.
+    
+    This is Aimee's guide voice - warm, listening, asking gentle questions.
+    Safety check runs first. Crisis input returns crisis response.
+    """
+    # Step 1: Safety check
+    is_safe, crisis_message = check_safety(request.message)
+    
+    if not is_safe:
+        return ChatResponse(
+            reply=crisis_message,
+            safety_status="flagged",
+        )
+    
+    # Step 2: Build conversation context
+    system_prompt = """You are Aimee, a warm and thoughtful reflection guide.
+
+You help people understand their feelings through gentle conversation. 
+You listen carefully, acknowledge what's shared, and ask one thoughtful question at a time.
+You do not lecture, diagnose, or rush to solutions.
+
+Your style:
+- Calm and unhurried
+- Warm but not effusive  
+- Curious about what matters to the person
+- Ask one question at a time when appropriate
+- Non-judgmental about any emotion or situation
+
+Remember: you are a guide for reflection, not a therapist or advisor."""
+
+    messages = []
+    if request.conversation_context:
+        messages.append({"role": "system", "content": system_prompt})
+        # Add context as a user message for continuity
+        context_msg = f"Here's our recent conversation:\n{request.conversation_context}\n\nThe person just said: {request.message}"
+        messages.append({"role": "user", "content": context_msg})
+    else:
+        messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": request.message})
+    
+    # Step 3: Try AI chat (MiniMax or mock)
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    
+    if api_key:
+        return await _chat_with_openai(messages, request.message)
+    else:
+        return _chat_with_mock(request.message)
+
+
+async def _chat_with_openai(
+    messages: list[dict],
+    original_message: str,
+) -> ChatResponse:
+    """Chat using MiniMax (OpenAI-compatible API)."""
+    import openai
+    
+    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    model = os.environ.get("MINIMAX_MODEL", "MiniMax-Text-01")
+    
+    try:
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url=base_url
+        )
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.8,
+        )
+        
+        reply = response.choices[0].message.content.strip()
+        return ChatResponse(reply=reply, safety_status="safe")
+    except Exception as e:
+        print(f"MINIMAX CHAT ERROR: {type(e).__name__}: {e}")
+        return _chat_with_mock(original_message)
+
+
+def _chat_with_mock(message: str) -> ChatResponse:
+    """Mock chat for testing and when no API key is available."""
+    text_lower = message.lower()
+    
+    # Warm, reflective responses
+    if any(w in text_lower for w in ["angry", "frustrated", "mad", "annoyed"]):
+        reply = "That frustration sounds heavy. What's underneath it, if you feel like saying more?"
+    elif any(w in text_lower for w in ["sad", "hurt", "disappointed", "lonely"]):
+        reply = "I hear that sense of hurt. Take your time — what's closest to how you're feeling right now?"
+    elif any(w in text_lower for w in ["happy", "joy", "excited", "grateful"]):
+        reply = "That's really lovely to hear. What made this moment feel especially good?"
+    elif any(w in text_lower for w in ["scared", "afraid", "worried", "anxious"]):
+        reply = "Anxiety can feel like a lot. What's the part that's weighing on you most?"
+    elif any(w in text_lower for w in ["disgusted", "gross", "ew", "ugh"]):
+        reply = "That reaction makes sense. What was it about the situation that felt off?"
+    elif any(w in text_lower for w in ["help", "advice", "should i"]):
+        reply = "I'm not here to give advice, but I'm happy to listen. What's going on?"
+    else:
+        reply = "Thank you for sharing that with me. What's on your mind about it?"
+    
+    return ChatResponse(reply=reply, safety_status="safe")
 
 
 # ─── Confirmation (Save to Emotional Graph) ──────────────────────────────────

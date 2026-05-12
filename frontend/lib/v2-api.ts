@@ -205,6 +205,24 @@ export async function confirmAimeeExtraction(
   })
 }
 
+export interface ChatResponse {
+  reply: string
+  safety_status: 'safe' | 'flagged'
+}
+
+export async function chatWithAimee(
+  message: string,
+  conversationContext?: string
+): Promise<ChatResponse> {
+  return apiRequest<ChatResponse>('/v2/aimee/chat', {
+    method: 'POST',
+    body: JSON.stringify({ 
+      message, 
+      conversation_context: conversationContext || null 
+    }),
+  })
+}
+
 // ─── Memory API ───────────────────────────────────────────────────────────────
 
 export async function getV2Memories(): Promise<Memory[]> {
