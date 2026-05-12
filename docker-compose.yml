@@ -60,6 +60,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ENABLE_MVP2_BACKEND_BRIDGE: "false"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -83,6 +84,11 @@ services:
       # Use Docker internal network hostname for proxy rewrites.
       # The Next.js standalone build's rewrite proxy needs absolute URLs.
       NEXT_PUBLIC_API_URL: "http://api:8000"
+      # NextAuth configuration for OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-local-secret-change-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
     depends_on:

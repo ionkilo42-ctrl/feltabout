@@ -28,10 +28,42 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: proxyTarget,
   },
   
-  // Proxy all browser /api/* requests through the Next.js server.
+  // Proxy browser /api/* requests to the backend
   async rewrites() {
     return [
       {
+        // NextAuth routes - handled by Next.js (no proxy needed)
+        source: '/api/auth/providers',
+        destination: '/api/auth/providers',
+      },
+      {
+        // NextAuth session - handled by Next.js
+        source: '/api/auth/session',
+        destination: '/api/auth/session',
+      },
+      {
+        // NextAuth callback - handled by Next.js
+        source: '/api/auth/callback/:path*',
+        destination: '/api/auth/callback/:path*',
+      },
+      {
+        // NextAuth signin - handled by Next.js
+        source: '/api/auth/signin/:path*',
+        destination: '/api/auth/signin/:path*',
+      },
+      {
+        // NextAuth CSRF - handled by Next.js
+        source: '/api/auth/csrf',
+        destination: '/api/auth/csrf',
+      },
+      {
+        // NextAuth _log (for error logging) - handled by Next.js
+        source: '/api/auth/_log',
+        destination: '/api/auth/_log',
+      },
+      {
+        // All other /api/* routes → proxy to backend
+        // e.g. /api/auth/magic-link-request → http://api:8000/auth/magic-link-request
         source: '/api/:path*',
         destination: `${proxyTarget}/:path*`,
       },

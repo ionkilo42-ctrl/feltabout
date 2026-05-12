@@ -53,6 +53,14 @@ class UpdateNameRequest(BaseModel):
     name: str
 
 
+class SocialLoginRequest(BaseModel):
+    provider: str
+    email: EmailStr
+    name: str
+    provider_user_id: str
+    avatar_url: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -254,6 +262,40 @@ async def login(
 
     if error:
         raise HTTPException(status_code=401, detail=error)
+
+    # Create session token
+    session_token = create_session_token(user.id, user.email, user.display_name)
+
+    return AuthResponse(
+        token=session_token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.display_name,
+        ),
+    )
+
+
+@router.post("/social-login", response_model=AuthResponse)
+async def social_login(
+    data: SocialLoginRequest,
+    auth: AuthService = Depends(get_auth_service),
+):
+    """
+    Handle social login (Google, Facebook, etc.).
+    
+    Finds or creates user by email, returns Feltabout session token.
+    For MVP, links by verified email only (no provider_user_id tracking yet).
+    """
+    # Find or create user by email (reuses magic-link logic)
+    user = await auth.social_login(
+        email=data.email,
+        name=data.name,
+        provider=data.provider,
+    )
+
+    if not user:
+        raise HTTPException(status_code=500, detail="Failed to create or find user")
 
     # Create session token
     session_token = create_session_token(user.id, user.email, user.display_name)

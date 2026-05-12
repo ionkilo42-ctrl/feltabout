@@ -179,7 +179,7 @@ class AuthService:
 
         return user
 
-    async def _get_or_create_user(self, email: str) -> User:
+    async def _get_or_create_user(self, email: str, name: Optional[str] = None) -> User:
         """Get existing user by email or create new one."""
         result = await self.db.execute(
             select(User).where(User.email == email)
@@ -187,10 +187,11 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user:
-            # Create new user with temporary name (can be updated later)
+            # Create new user with provided name or email prefix as default
+            display_name = name if name else email.split("@")[0]
             user = User(
                 email=email,
-                display_name=email.split("@")[0],  # Use email prefix as default name
+                display_name=display_name,
             )
             self.db.add(user)
             await self.db.commit()
@@ -298,3 +299,34 @@ class AuthService:
 
         logger.info(f"User logged in: {normalized_email}")
         return user, None
+
+    async def social_login(self, email: str, name: str, provider: str) -> Optional[User]:
+        """
+        Handle social login (Google, Facebook, etc.).
+        
+        Finds or creates user by email. For MVP, links by verified email only.
+        Does not track provider_user_id yet.
+        
+        Returns: User or None on failure
+        """
+        normalized_email = email.lower().strip()
+        
+        # Find existing user
+        user = await self.get_user_by_email(normalized_email)
+        
+        if user:
+            # Update display name if it's still the email prefix
+            if user.display_name == normalized_email.split("@")[0]:
+                user.display_name = name
+                await self.db.commit()
+                await self.db.refresh(user)
+            logger.info(f"Social login for existing user: {normalized_email} via {provider}")
+            return user
+        
+        # Create new user (same logic as magic link)
+        user = await self._get_or_create_user(normalized_email, name)
+        
+        if user:
+            logger.info(f"Created new user from social login: {normalized_email} via {provider}")
+        
+        return user

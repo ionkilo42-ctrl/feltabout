@@ -1285,6 +1285,157 @@ textarea:focus {
   color: var(--text-quiet);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   NEW LOGIN PAGE - Social Login UI
+   ═══════════════════════════════════════════════════════════ */
+
+.auth-methods {
+  display: grid;
+  gap: 1rem;
+}
+
+.brand-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.btn-provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 52px;
+  padding: 0 1.5rem;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-soft);
+}
+
+.btn-provider svg {
+  flex-shrink: 0;
+}
+
+.btn-google {
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-google:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-email {
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-email:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-text {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn-text:hover {
+  color: var(--text-soft);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-divider span {
+  color: var(--text-quiet);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.auth-form-section {
+  animation: fadeIn var(--duration-normal) var(--ease-soft);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-form button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 2rem;
+  border: none;
+  border-radius: 16px;
+  background: var(--gradient-core);
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.25);
+  transition: all var(--duration-normal) var(--ease-soft);
+}
+
+.auth-form button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(51, 214, 200, 0.35);
+}
+
+.btn-back {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+  margin-top: 0.5rem;
+}
+
+.btn-back:hover:not(:disabled) {
+  background: var(--hover-bg) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
 /* Magic link sent state */
 .magic-link-sent {
   display: grid;
