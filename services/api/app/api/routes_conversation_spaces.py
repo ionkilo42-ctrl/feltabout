@@ -40,6 +40,8 @@ class ConversationSpaceResponse(BaseModel):
     is_owner: bool
     # WebSocket connection info (internal, not for UI display)
     websocket_session_id: Optional[str] = None
+    # Invite URL for owners (not exposed to non-owners)
+    invite_url: Optional[str] = None
 
 
 class CreateConversationSpaceResponse(BaseModel):
@@ -47,6 +49,7 @@ class CreateConversationSpaceResponse(BaseModel):
     name: Optional[str]
     invite_url: str  # Full URL with raw token
     max_participants: int
+    invite_token: str  # Raw token for sharing
 
 
 class VerifyInviteResponse(BaseModel):
@@ -85,7 +88,7 @@ class ListConversationSpacesResponse(BaseModel):
 @router.post("", response_model=CreateConversationSpaceResponse, status_code=201)
 async def create_conversation_space(
     data: CreateConversationSpaceRequest,
-    current_user: dict = Depends(require_user),
+    current_user: dict = Depends(require_user),  # Returns dev user when USE_AUTH=false
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -93,17 +96,25 @@ async def create_conversation_space(
     
     The owner is automatically added as the first participant.
     An invite link is generated and returned.
+    
+    For MVP: When USE_AUTH=false, this works without real authentication.
+    Users just need a display name to create/join sessions.
     """
     service = ConversationSpaceService(db)
     
+    # When USE_AUTH=false, current_user["sub"] will be "dev-user" (local dev mode)
+    # For true anonymity in future, this could be None
+    owner_id = current_user["sub"]
+    
     space, raw_token = await service.create_space(
-        owner_user_id=current_user["sub"],
+        owner_user_id=owner_id,
         name=data.name,
         max_participants=data.max_participants,
     )
     
     # Generate invite URL
-    frontend_url = current_user.get("frontend_url", "http://localhost:3000")
+    # Use Accept header for frontend URL if provided, otherwise default to localhost
+    frontend_url = "http://localhost:3000"
     invite_url = f"{frontend_url}/join/{raw_token}"
     
     return CreateConversationSpaceResponse(
@@ -111,6 +122,7 @@ async def create_conversation_space(
         name=space.name,
         invite_url=invite_url,
         max_participants=space.max_participants,
+        invite_token=raw_token,
     )
 
 

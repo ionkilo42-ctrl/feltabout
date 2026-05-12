@@ -31,11 +31,9 @@ export default function HomePage() {
           <img className="brand-mark" src="/logo.png" alt="Feltabout" />
         </Link>
         <nav className="home-nav">
+          <Link href="/start" className="nav-link">Start session</Link>
           <Link href="/session" className="nav-link">Prepare</Link>
           <Link href="/library" className="nav-link">Library</Link>
-          <Link href="/aimee" className="nav-link">Aimee</Link>
-          <Link href="/login" className="nav-link">Sign in</Link>
-          <Link href="/session" className="nav-cta">Start</Link>
         </nav>
       </header>
 
@@ -50,11 +48,11 @@ export default function HomePage() {
             Feltabout helps you turn emotional overload into one calmer, clearer thing you can actually say.
           </p>
           <div className="hero-ctas">
-            <Link href="/session" className="btn-primary">
-              Prepare a conversation
+            <Link href="/start" className="btn-primary">
+              Start a session
             </Link>
-            <Link href="/library" className="btn-secondary">
-              View your library
+            <Link href="/session" className="btn-secondary">
+              Solo reflection
             </Link>
           </div>
         </div>

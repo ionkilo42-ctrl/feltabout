@@ -307,6 +307,10 @@ class ReflectionService:
         
         await db.commit()
         await db.refresh(output)
+        
+        # Decrypt output fields before returning so API response is readable
+        _decrypt_output(output)
+        
         return output
     
     @staticmethod

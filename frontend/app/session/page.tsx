@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
-import { useAuthStore } from '@/store/sessionStore'
+import { useParticipantStore } from '@/store/sessionStore'
 
-type Step = 'input' | 'generating' | 'done' | 'error'
+type Step = 'name-prompt' | 'input' | 'generating' | 'done' | 'error'
 
 interface PlanOutput {
   simple_opener?: string
@@ -58,8 +58,11 @@ function PageShell({ children }: { children: ReactNode }) {
 
 export default function SessionPage() {
   const router = useRouter()
-  const token = useAuthStore(s => s.token)
-  const [step, setStep] = useState<Step>('input')
+  const participant = useParticipantStore((s) => s.participant)
+  const setParticipant = useParticipantStore((s) => s.setParticipant)
+
+  const [step, setStep] = useState<Step>('name-prompt')
+  const [promptName, setPromptName] = useState('')
   const [situation, setSituation] = useState('')
   const [desiredOutcome, setDesiredOutcome] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -68,26 +71,41 @@ export default function SessionPage() {
   const [fullOutput, setFullOutput] = useState<PlanOutput | null>(null)
   const [safetyResources, setSafetyResources] = useState<string[]>([])
 
+  // Check if user has participant info on mount
+  useEffect(() => {
+    if (participant) {
+      setStep('input')
+    }
+  }, [participant])
+
+  const handleNamePromptSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!promptName.trim()) return
+
+    setParticipant({
+      participantId: '',  // Generated on backend
+      displayName: promptName.trim(),
+      spaceId: '',  // No space for individual reflection
+      isOwner: false,
+      joinedAt: new Date().toISOString(),
+    })
+    setStep('input')
+  }
+
   const handleSubmit = async () => {
     const trimmedSituation = situation.trim()
     if (!trimmedSituation) return
-
-    if (!token) {
-      router.push('/login')
-      return
-    }
 
     setStep('generating')
     setError(null)
     setSafetyResources([])
 
     try {
+      // For MVP: create reflection without auth
+      // The backend's require_user() returns dev user when USE_AUTH=false
       const createRes = await fetch(apiUrl('/reflections'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: trimmedSituation.slice(0, 80),
           situation: trimmedSituation,
@@ -110,10 +128,7 @@ export default function SessionPage() {
 
       const genRes = await fetch(apiUrl(`/reflections/${reflection.id}/generate`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
       })
 
       if (!genRes.ok) {
@@ -153,6 +168,30 @@ export default function SessionPage() {
   }
 
   const hasDetails = fullOutput && DETAILS.some(detail => Boolean(fullOutput[detail.key]))
+
+  // Name prompt step
+  if (step === 'name-prompt') {
+    return (
+      <PageShell>
+        <div className="name-prompt">
+          <h1>What should we call you?</h1>
+          <form onSubmit={handleNamePromptSubmit} className="name-form">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={promptName}
+              onChange={(e) => setPromptName(e.target.value)}
+              autoFocus
+            />
+            <button type="submit" disabled={!promptName.trim()}>
+              Continue
+            </button>
+          </form>
+          <p className="name-note">No account needed.</p>
+        </div>
+      </PageShell>
+    )
+  }
 
   if (step === 'generating') {
     return (
@@ -236,18 +275,19 @@ export default function SessionPage() {
           )}
 
           <div className="done-actions">
-            <Link href="/library" className="btn-primary">
-              View in library
-            </Link>
-            <button className="btn-ghost" onClick={handleRestart}>
+            <button className="btn-primary" onClick={handleRestart}>
               Start another
             </button>
+            <Link href="/" className="btn-ghost">
+              Go home
+            </Link>
           </div>
         </div>
       </PageShell>
     )
   }
 
+  // Input step
   return (
     <PageShell>
       <div className="session-input">
@@ -299,13 +339,14 @@ const styles = `
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--page-bg, #FAF9F7);
 }
 
 .app-header {
   display: flex;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--border, #e5e7eb);
 }
 
 .brand-lockup {
@@ -325,6 +366,67 @@ const styles = `
   max-width: 560px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* Name prompt step */
+.name-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+}
+
+.name-prompt h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text, #111827);
+  margin: 0 0 1.5rem;
+}
+
+.name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 320px;
+}
+
+.name-form input {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  font-size: 1rem;
+  text-align: center;
+  background: white;
+}
+
+.name-form input:focus {
+  outline: none;
+  border-color: var(--accent, #e07a5f);
+}
+
+.name-form button {
+  padding: 0.875rem 1.5rem;
+  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+}
+
+.name-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.name-note {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-quiet, #9ca3af);
 }
 
 /* Input step */
@@ -583,18 +685,18 @@ const styles = `
   justify-content: center;
   min-height: 48px;
   padding: 0.75rem 1.5rem;
-  background: var(--accent, #e07a5f);
-  color: white;
+  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
   border: none;
   border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
+  color: white;
   cursor: pointer;
-  transition: background 0.15s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #c9603f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.3);
 }
 
 .btn-primary:disabled {
@@ -610,6 +712,8 @@ const styles = `
   color: var(--text-muted, #6b7280);
   cursor: pointer;
   padding: 0.75rem;
+  text-align: center;
+  text-decoration: none;
 }
 
 .btn-ghost:hover {

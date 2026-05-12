@@ -66,12 +66,14 @@ from app.api.routes_memories import router as memories_router
 from app.api.routes_feelflow import router as feelflow_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_conversation_spaces import router as conversation_spaces_router
+from app.api.routes_session_messages import router as session_messages_router
 from app.api.routes_library import router as library_router
 from app.api.routes_patterns import router as patterns_router
 from app.api.routes_v2 import memories_router, feelings_router, entities_router, needs_router, aimee_router
 
 app.include_router(auth_router)
 app.include_router(conversation_spaces_router)
+app.include_router(session_messages_router)
 app.include_router(reflections_router)
 app.include_router(analytics_router)
 app.include_router(memories_router)

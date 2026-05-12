@@ -63,3 +63,34 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 )
+
+// ─── Session Participant Store (localStorage-based for no-auth MVP) ────────────
+// For MVP: Identity is just participant_id + display_name + space_id in localStorage.
+// No account needed to join/create sessions.
+
+export interface SessionParticipant {
+  participantId: string
+  displayName: string
+  spaceId: string
+  isOwner: boolean
+  joinedAt: string
+}
+
+interface ParticipantStore {
+  participant: SessionParticipant | null
+  setParticipant: (p: SessionParticipant) => void
+  clearParticipant: () => void
+}
+
+export const useParticipantStore = create<ParticipantStore>()(
+  persist(
+    (set) => ({
+      participant: null,
+      setParticipant: (p) => set({ participant: p }),
+      clearParticipant: () => set({ participant: null }),
+    }),
+    {
+      name: 'feltabout-participant',
+    }
+  )
+)
