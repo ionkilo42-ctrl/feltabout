@@ -6,7 +6,7 @@ MVP scope: single-user reflection, no couples sessions, no realtime voice.
 Architecture: Three-Engine Model
 - Reflection Engine (app/services/reflection_service.py) — intake and emotional clarification
 - Facilitation Engine (app/services/facilitation_service.py) — reframing and conversation preparation
-- Safety Engine (app/services/safety_service.py) — crisis, abuse, coercion, and escalation handling
+- Safety Engine (app/services/safety_service.py) — escalation handling and guardrails
 
 Extraction is an internal stage in the reflection pipeline, not a fourth product engine.
 All AI generation passes through Safety Engine first.
@@ -25,32 +25,29 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-
 _allowed_origins = os.environ.get(
     "ALLOWED_ORIGINS",
     "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://localhost:8082"
 ).split(",")
 
 
-# ─── Lifespan ─────────────────────────────────────────────────────────────────
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup."""
+    """Validate runtime config and initialize database on startup."""
+    from app.config_validation import validate_runtime_config
     from app.db.session import init_db
+
+    validate_runtime_config()
     await init_db()
     yield
 
-
-# ─── FastAPI App ──────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="feltabout API",
     version="1.0.0",
     description=(
         "AI-guided reflection and conversation preparation for individuals. "
-        "Not therapy, not crisis care — communication preparation and emotional clarity."
+        "Communication preparation and emotional clarity."
     ),
     lifespan=lifespan,
 )
@@ -62,9 +59,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# ─── Include Routers ───────────────────────────────────────────────────────────
 
 from app.api.routes_reflections import router as reflections_router
 from app.api.routes_analytics import router as analytics_router
@@ -85,19 +79,16 @@ app.include_router(memories_router)
 app.include_router(feelflow_router)
 app.include_router(library_router)
 app.include_router(patterns_router)
-
-# V2 Emotional Graph routes (isolated namespace)
 app.include_router(memories_router)
 app.include_router(feelings_router)
 app.include_router(entities_router)
 app.include_router(needs_router)
 app.include_router(aimee_router)
+app.include_router(aimee_chat_router)
 
 # Aimee conversational chat
 app.include_router(aimee_chat_router)
 
-
-# ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
@@ -117,79 +108,53 @@ async def root():
     }
 
 
-# ─── WebSocket Stub ─────────────────────────────────────────────────────────────
-# MVP placeholder for voice-mediated sessions (MVP 2 feature).
-# This stub accepts connections and provides a friendly fallback message.
-# In MVP 2, this will be replaced with the full voice infrastructure from backend/main.py.
-
 @app.websocket("/ws/{session_id}")
 async def websocket_stub(ws: WebSocket, session_id: str):
-    """
-    WebSocket placeholder for conversation sessions.
-    
-    In MVP 1, this provides a graceful fallback since live mediated sessions
-    are not yet implemented. The frontend receives a friendly system message
-    explaining the current state.
-    
-    In MVP 2, this will be replaced with the full WebSocket + voice integration
-    from backend/main.py (LiveKit, STT, TTS, MiniMax LLM).
-    """
+    """MVP 1 placeholder for future live sessions."""
     await ws.accept()
-    
-    # Send welcome/placeholder message
     welcome_message = {
         "type": "system",
         "content": (
-            "This conversation space is ready, but live mediated sessions are not "
-            "enabled in this local MVP build yet. Your reflection and conversation "
-            "preparation data has been saved. Full voice-facilitated sessions will "
-            "be available in MVP 2."
+            "This conversation space is ready, but live sessions are not enabled "
+            "in this local MVP build yet. Your reflection and conversation "
+            "preparation data has been saved. Full voice-facilitated sessions "
+            "are planned for a later milestone."
         ),
         "session_id": session_id,
         "status": "placeholder",
     }
     await ws.send_json(welcome_message)
-    
     logger.info(f"[WS Stub] Connection accepted for session: {session_id}")
-    
+
     try:
         while True:
-            # Echo/acknowledge incoming messages
             data = await ws.receive_text()
-            
             try:
                 msg = json.loads(data)
                 msg_type = msg.get("type", "unknown")
-                
-                # Acknowledge the message
                 ack = {
                     "type": "ack",
                     "original_type": msg_type,
-                    "content": f"Received your message ({msg_type}). Live session features are coming in MVP 2.",
+                    "content": f"Received your message ({msg_type}). Live session features are planned for a later milestone.",
                     "session_id": session_id,
                 }
                 await ws.send_json(ack)
-                
             except json.JSONDecodeError:
-                # Handle non-JSON input gracefully
                 ack = {
                     "type": "ack",
-                    "content": "Message received. Live session features are coming in MVP 2.",
+                    "content": "Message received. Live session features are planned for a later milestone.",
                     "session_id": session_id,
                 }
                 await ws.send_json(ack)
-                
     except WebSocketDisconnect:
         logger.info(f"[WS Stub] Session {session_id} disconnected gracefully")
     except Exception as e:
         logger.warning(f"[WS Stub] Session {session_id} error: {e}")
         try:
-            await ws.close(code=1011, reason="MVP 1 placeholder — MVP 2 voice sessions coming soon")
+            await ws.close(code=1011, reason="MVP 1 placeholder")
         except Exception:
             pass
 
-
-# ─── Run ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn

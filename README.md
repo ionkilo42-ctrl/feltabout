@@ -1,137 +1,120 @@
-# feltabout
+# Feltabout
 
 **Reflect before you react.**
 
-feltabout is an AI-guided communication and reflection product that helps people organize their thoughts, prepare for difficult conversations, and communicate with more clarity.
+Feltabout is an AI-guided difficult-conversation preparation product. It helps one person slow down, organize what happened, understand what they are carrying, and find calmer words before they send a message or start a hard conversation.
 
-The platform includes:
+The current MVP is intentionally simple:
 
-- **Individual reflection** — A guided process to clarify emotions, needs, assumptions, and a useful next message.
-- **Conversation preparation** — A generated plan with calmer language, questions, repair-oriented phrasing, and things to avoid saying.
-- **Reflection library** — Saved reflections and follow-up feedback so users can return to what helped.
+- **Reflection intake** — write what happened in plain language.
+- **Conversation preparation** — generate one grounded thing you could say, plus optional deeper notes.
+- **Reflection library** — save and revisit prior reflections.
+- **Aimee** — an experimental assistant surface for reflection and communication support.
 
-Shared conversation spaces and live mediation code exist as future/experimental surfaces. They are not the MVP 1 product path.
+Shared spaces, realtime voice, LiveKit, and live mediation are future milestone surfaces. They are not the active MVP 1 product path.
 
-Feltabout is for reflection and communication support. It is not therapy, medical care, diagnosis, or crisis support.
+Feltabout is communication support software. It is not medical care, diagnosis, treatment, or emergency support.
 
 ---
 
-## 🐳 Docker Setup (Recommended)
+## Product direction
 
-Get the full Feltabout stack running with a single command.
+The strongest current product path is:
+
+> AI-guided preparation for difficult conversations.
+
+That means Feltabout should prioritize:
+
+1. Helping the user name what happened.
+2. Turning emotional overload into a clearer first sentence.
+3. Reducing blame, escalation, and impulsive wording.
+4. Saving useful reflections so the user can return to what helped.
+
+The emotional graph, memories, entities, and deeper pattern features can support this later, but they should not distract from the core MVP flow.
+
+---
+
+## Docker setup
 
 ### Prerequisites
+
 - Docker Desktop installed and running
 - At least 4GB RAM allocated to Docker
 
-### Quick Start
+### Quick start
 
 ```bash
-# 1. Navigate to project root
 cd /Users/jonathankillough/Desktop/CLAW/Feltabout
-
-# 2. Copy environment template (first time only)
 cp .env.example .env
-
-# 3. Build and start all services
 docker compose up --build
 ```
 
-That's it! All three services will start:
-- **API**: http://localhost:8000
-- **Frontend**: http://localhost:3000
-- **Database**: postgres://localhost:5432
+Services:
 
-### Verify Everything Is Running
+- API: http://localhost:8000
+- Frontend: http://localhost:3000
+- Database: postgres://localhost:5432
+
+### Verify
 
 ```bash
-# Check API health
 curl http://localhost:8000/health
-# Expected: {"status":"ok","version":"1.0.0","service":"feltabout-api"}
-
-# Check frontend
 curl http://localhost:3000
-# Expected: HTML page loads
 ```
 
-### Common Docker Commands
+### Common commands
 
 ```bash
-# View logs
 docker compose logs -f
-
-# View logs for specific service
 docker compose logs -f api
 docker compose logs -f frontend
 docker compose logs -f postgres
-
-# Stop services
 docker compose down
-
-# Stop and remove data volume (fresh database)
 docker compose down -v
-
-# Restart with fresh build
 docker compose up --build
-
-# Validate compose configuration
 docker compose config
 ```
 
-### Environment Variables
+---
 
-All configuration lives in `.env` at the project root. Copy from `.env.example`:
+## Environment variables
+
+Copy the template:
 
 ```bash
 cp .env.example .env
 ```
 
-Key variables:
+Important variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | `change-me-in-prod` | Database password |
-| `USE_AUTH` | `false` | Enable real auth (false = dev mode with auto-dev-user) |
-| `JWT_SECRET` | `dev-secret...` | JWT signing secret (change in production) |
-| `OPENAI_API_KEY` | empty | OpenAI key for AI generation (empty = local fallback) |
-| `NEXT_PUBLIC_API_URL` | `http://api:8000` | API URL for frontend |
+| Variable | Local default | Notes |
+|---|---:|---|
+| `POSTGRES_PASSWORD` | `change-me-in-prod` | Change before any deployed environment. |
+| `USE_AUTH` | `false` | Local dev mode. Set `true` for production-like auth. |
+| `JWT_SECRET` | dev placeholder | Must be strong when `USE_AUTH=true`. |
+| `OPENAI_API_KEY` | empty | Empty uses local fallback generation. |
+| `NEXT_PUBLIC_API_URL` | `http://api:8000` | Docker internal API URL for frontend rewrites. |
+| `EMAIL_ENABLED` | `false` | Email delivery is not implemented in MVP 1; magic links are local/dev only. |
+| `ALLOWED_ORIGINS` | localhost origins | Set explicit deployed frontend origins before launch. |
 
-### Reset Database
-
-To start with a fresh database:
-
-```bash
-docker compose down -v && docker compose up --build
-```
-
-### Database Schema
-
-Tables are created automatically on API startup via `init_db()`. Schema includes:
-- `users` (with `password_hash` for auth)
-- `reflections` (main reflection data)
-- `reflection_outputs` (generated conversation plans)
-- `reflection_feedback` (user feedback on plans)
-- `safety_events` (crisis detection logging)
-- `feel_flow_events`, `core_memories`, `core_memory_relationships` (emotional graph)
-- `conversation_spaces`, `conversation_participants` (shared spaces)
-- `v2` emotional graph tables (feelings, needs, entities, topics, memories)
+Runtime config validation runs when the API starts. Production-like settings fail fast if obvious dev credentials are still present.
 
 ---
 
-## 🖥️ Local Development (Without Docker)
+## Local development without Docker
 
-### Terminal 1: API
+### API
 
 ```bash
 cd services/api
-python -m venv .venv       # only needed the first time
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env       # only needed the first time
+cp .env.example .env
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Terminal 2: Web App
+### Web app
 
 ```bash
 cd frontend
@@ -139,9 +122,9 @@ pnpm install
 NEXT_PUBLIC_API_URL=http://localhost:8000 pnpm dev
 ```
 
-Open `http://localhost:3000`.
+Open http://localhost:3000.
 
-### Terminal 3: Mobile App
+### Mobile app
 
 ```bash
 cd apps/mobile
@@ -151,143 +134,93 @@ EXPO_PUBLIC_API_URL=http://localhost:8000 npm run start
 
 ---
 
-## 📁 Project Structure
+## Project structure
 
-```
+```text
 feltabout/
-├── .env.example          # Environment template
-├── .env                 # Local environment (gitignored)
-├── docker-compose.yml   # Docker orchestration
-├── services/api/        # FastAPI REST API (ACTIVE MVP 1)
-│   ├── app/
-│   │   ├── main.py      # FastAPI app entry
-│   │   ├── api/         # Route handlers
-│   │   ├── db/          # Database session management
-│   │   ├── models/      # SQLAlchemy models
-│   │   ├── schemas/     # Pydantic schemas
-│   │   └── services/    # Business logic
-│   ├── Dockerfile
-│   └── requirements.txt
+├── .env.example
+├── docker-compose.yml
+├── services/api/        # Active FastAPI backend for MVP 1
 ├── frontend/            # Next.js web app
-│   ├── app/
-│   │   ├── session/     # Guided reflection wizard
-│   │   ├── library/     # Reflection library
-│   │   ├── login/       # Auth pages
-│   │   └── register/
-│   ├── Dockerfile
-│   └── next.config.js
 ├── packages/shared/     # Shared TypeScript types
-├── apps/mobile/         # Expo React Native (testing)
+├── apps/mobile/         # Expo React Native test app
 ├── docs/                # Product and developer docs
-├── backend/             # ⚠️ LEGACY — MVP 2 reference only
-│   └── README.md        # Explains inactive status
+├── backend/             # Legacy/MVP 2 reference only
 └── README.md
 ```
 
 ---
 
-## ✅ MVP 1 Features (What's Working)
-
-### Active Routes
+## Active MVP 1 routes
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
+|---|---|---|
+| `/health` | GET | API health check |
 | `/auth/register` | POST | Create account |
 | `/auth/login` | POST | Sign in |
-| `/auth/me` | GET | Current user info |
+| `/auth/me` | GET | Current user |
 | `/reflections` | GET, POST | List/create reflections |
-| `/reflections/{id}` | GET, PUT, DELETE | Single reflection |
-| `/reflections/{id}/generate` | POST | Generate conversation plan |
-| `/reflections/{id}/feedback` | GET, POST | Feedback on plan |
-| `/library` | GET | User's reflections and conversations |
-| `/patterns` | GET | Detected emotional patterns |
-| `/feel-flow` | GET | Emotional timeline |
-| `/memories` | GET, POST | Core memories |
-| `/feelings` | GET | Feelings graph |
-| `/entities` | GET | Entity tracking |
-| `/needs` | GET | Needs tracking |
-| `/aimee` | GET, POST | Aimee AI assistant |
-| `/ws/{session_id}` | WS | WebSocket stub (MVP 1 placeholder) |
-
-### Key Pages
-
-- `/` — Home/landing page
-- `/session` — Guided reflection wizard (5 questions → conversation plan)
-- `/library` — User's reflection history with pattern insights
-- `/login` — Sign in
-- `/register` — Create account
+| `/reflections/{id}` | GET, PUT, DELETE | Manage one reflection |
+| `/reflections/{id}/generate` | POST | Generate conversation preparation output |
+| `/reflections/{id}/feedback` | GET, POST | Save/read feedback |
+| `/library` | GET | Reflection library |
+| `/aimee` | GET, POST | Experimental assistant surface |
+| `/ws/{session_id}` | WS | Placeholder only; live sessions are later |
 
 ---
 
-## ❌ NOT Included in MVP 1
+## Active web pages
 
-The following are **intentionally not wired** in MVP 1:
+- `/` — landing page
+- `/session` — single-input conversation preparation flow
+- `/library` — reflection history
+- `/login` — sign in
+- `/register` — create account
+- `/aimee` — experimental assistant
 
-### Voice / Live Sessions
-- LiveKit integration (`voice/livekit_integration.py`)
-- Speech-to-text (STT)
-- Text-to-speech (TTS)
-- Real-time WebSocket voice rooms
-- Live mediation
+---
 
-The `/ws/{session_id}` endpoint exists as a **graceful stub** that returns a friendly message explaining live sessions are coming in MVP 2.
+## Not included in MVP 1
 
-### Infrastructure
-- Email sending (magic links print to console)
+- LiveKit rooms
+- Speech-to-text
+- Text-to-speech
+- Realtime voice sessions
+- Full live mediation
+- Production email delivery
 - Redis caching
-- Sentry error tracking
 - Payment processing
-
-### Future Features
-- Clerk/Supabase auth integration
 - Push notifications
 - PDF export
-- Dark mode
-- Group facilitation
-- Advanced vector memory
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
-# API tests
 cd services/api
 python -m pytest tests -q
 
-# Frontend build
 cd frontend
 pnpm build
 
-# Mobile typecheck
 cd apps/mobile
 npm run typecheck
 ```
 
 ---
 
-## 🔒 Security Notes
-
-- `USE_AUTH=false` enables dev mode with automatic dev-user authentication
-- Set `USE_AUTH=true` for production-like auth flows
-- Change `JWT_SECRET` in production
-- Database password defaults to `change-me-in-prod` — change it for any non-local deployment
-
----
-
 ## Architecture
 
-**Active Backend**: `services/api/` — FastAPI with async SQLAlchemy
+Active backend: `services/api/` — FastAPI with async SQLAlchemy.
 
-**Three-Engine Model**:
-1. **Reflection Engine** — Intake and emotional clarification
-2. **Facilitation Engine** — Reframing and conversation preparation
-3. **Safety Engine** — Crisis, abuse, coercion, and escalation handling
+Three-engine model:
+
+1. **Reflection Engine** — intake and clarification
+2. **Facilitation Engine** — reframing and conversation preparation
+3. **Safety Engine** — guardrails and escalation handling
 
 Extraction is an internal stage inside the reflection pipeline, not a separate product engine.
-
-All AI generation passes through Safety Engine first.
 
 ---
 

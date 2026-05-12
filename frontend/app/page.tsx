@@ -2,147 +2,92 @@
 
 import Link from 'next/link'
 
-// Primary emotion colors
-const EMOTION_COLORS = {
-  joy: '#FFD93D',
-  sadness: '#6B9FFF',
-  anger: '#FF6B6B',
-  fear: '#B794F4',
-  disgust: '#6BCB77',
-}
-
-// Orb data for the emotional warehouse preview
-const MOCK_ORBS = [
-  { label: 'joy', color: EMOTION_COLORS.joy, size: 48, top: '15%', left: '20%' },
-  { label: 'sadness', color: EMOTION_COLORS.sadness, size: 36, top: '25%', left: '55%' },
-  { label: 'anger', color: EMOTION_COLORS.anger, size: 42, top: '45%', left: '35%' },
-  { label: 'fear', color: EMOTION_COLORS.fear, size: 38, top: '60%', left: '65%' },
-  { label: 'disgust', color: EMOTION_COLORS.disgust, size: 30, top: '70%', left: '25%' },
-  { label: 'joy', color: EMOTION_COLORS.joy, size: 34, top: '35%', left: '70%' },
-  { label: 'sadness', color: EMOTION_COLORS.sadness, size: 44, top: '55%', left: '45%' },
-  { label: 'anger', color: EMOTION_COLORS.anger, size: 28, top: '75%', left: '55%' },
-  { label: 'fear', color: EMOTION_COLORS.fear, size: 40, top: '20%', left: '40%' },
-  { label: 'joy', color: EMOTION_COLORS.joy, size: 32, top: '80%', left: '40%' },
+const EXAMPLE_LINES = [
+  "I want to talk about this without making it a fight.",
+  "I think I got quiet because I felt dismissed, not because I stopped caring.",
+  "Can we reset this conversation and try to understand each other better?",
 ]
 
-// Mock stats
-const MOCK_STATS = [
-  { label: 'Feelings tracked', value: '247', unit: 'this month' },
-  { label: 'Top emotion', value: 'joy', unit: '', color: EMOTION_COLORS.joy },
-  { label: 'Needs identified', value: '38', unit: 'unique needs' },
-  { label: 'About', value: '12', unit: 'entities tracked' },
-]
-
-// Mock recent feelings
-const MOCK_RECENT = [
-  { feeling: 'grateful', about: 'Crystal', time: '2h ago', color: EMOTION_COLORS.joy },
-  { feeling: 'anxious', about: 'work', time: '5h ago', color: EMOTION_COLORS.fear },
-  { feeling: 'hurt', about: 'Sarah', time: '1d ago', color: EMOTION_COLORS.sadness },
-  { feeling: 'frustrated', about: 'Starbucks', time: '2d ago', color: EMOTION_COLORS.anger },
+const STEPS = [
+  {
+    title: 'Say it messy',
+    description: 'Write what happened in plain language. No perfect wording required.',
+  },
+  {
+    title: 'Find the signal',
+    description: 'Feltabout looks for the feeling, need, assumption, and desired outcome underneath it.',
+  },
+  {
+    title: 'Choose calmer words',
+    description: 'Get one grounded thing you could say before you react, text, or walk into the conversation.',
+  },
 ]
 
 export default function HomePage() {
   return (
     <main className="home">
-      {/* Header */}
       <header className="home-header">
-        <div className="brand-lockup">
+        <Link href="/" className="brand-lockup" aria-label="Feltabout home">
           <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-        </div>
+        </Link>
         <nav className="home-nav">
+          <Link href="/session" className="nav-link">Prepare</Link>
+          <Link href="/library" className="nav-link">Library</Link>
           <Link href="/aimee" className="nav-link">Aimee</Link>
-          <Link href="/feel-flow" className="nav-link">Feel Flow</Link>
-          <Link href="/memories" className="nav-link">Memories</Link>
-          <Link href="/entities" className="nav-link">Entities</Link>
-          <Link href="/needs" className="nav-link">Needs</Link>
-          <Link href="/reflections/new" className="nav-cta">Reflect</Link>
+          <Link href="/login" className="nav-link">Sign in</Link>
+          <Link href="/session" className="nav-cta">Start</Link>
         </nav>
       </header>
 
-      {/* Hero */}
       <section className="hero-section">
-        <div className="hero-orb-field">
-          {MOCK_ORBS.map((orb, i) => (
-            <div
-              key={i}
-              className="hero-orb"
-              style={{
-                width: orb.size,
-                height: orb.size,
-                background: orb.color,
-                top: orb.top,
-                left: orb.left,
-                opacity: 0.7 + (i % 3) * 0.1,
-              }}
-            />
-          ))}
-        </div>
+        <div className="ambient ambient-one" />
+        <div className="ambient ambient-two" />
+
         <div className="hero-content">
-          <h1 className="hero-headline">A place to master your emotions.</h1>
+          <p className="eyebrow">Difficult conversation prep</p>
+          <h1 className="hero-headline">Find the words before the moment gets away from you.</h1>
           <p className="hero-subtitle">
-            Understand what you feel, what it's about, and what your feelings need.
+            Feltabout helps you turn emotional overload into one calmer, clearer thing you can actually say.
           </p>
           <div className="hero-ctas">
-            <Link href="/aimee" className="btn-primary">
-              Talk to Aimee
+            <Link href="/session" className="btn-primary">
+              Prepare a conversation
             </Link>
-            <Link href="/feel-flow" className="btn-secondary">
-              See your Feel Flow
+            <Link href="/library" className="btn-secondary">
+              View your library
             </Link>
           </div>
         </div>
-      </section>
 
-      {/* Quick Stats */}
-      <section className="stats-section">
-        <div className="stats-grid">
-          {MOCK_STATS.map((stat) => (
-            <div key={stat.label} className="stat-card">
-              <div className="stat-value" style={stat.color ? { color: stat.color } : {}}>
-                {stat.value}
-              </div>
-              <div className="stat-label">{stat.label}</div>
-              {stat.unit && <div className="stat-unit">{stat.unit}</div>}
-            </div>
+        <div className="example-card" aria-label="Example conversation openers">
+          <div className="example-label">Examples Feltabout can help shape</div>
+          {EXAMPLE_LINES.map((line) => (
+            <p key={line} className="example-line">“{line}”</p>
           ))}
         </div>
       </section>
 
-      {/* Recent Feelings */}
-      <section className="recent-section">
-        <h2 className="section-title">Recent feelings</h2>
-        <div className="recent-list">
-          {MOCK_RECENT.map((item, i) => (
-            <div key={i} className="recent-item">
-              <div className="recent-dot" style={{ background: item.color }} />
-              <div className="recent-info">
-                <span className="recent-feeling">{item.feeling}</span>
-                <span className="recent-about"> about {item.about}</span>
-              </div>
-              <span className="recent-time">{item.time}</span>
-            </div>
-          ))}
-        </div>
-        <Link href="/memories" className="see-all-link">See all memories →</Link>
+      <section className="steps-section">
+        {STEPS.map((step, index) => (
+          <div className="step-card" key={step.title}>
+            <div className="step-number">0{index + 1}</div>
+            <h2>{step.title}</h2>
+            <p>{step.description}</p>
+          </div>
+        ))}
       </section>
 
-      {/* Emotion Color Legend */}
-      <section className="emotion-legend">
-        <h2 className="section-title">Primary emotions</h2>
-        <div className="emotion-pills">
-          {Object.entries(EMOTION_COLORS).map(([emotion, color]) => (
-            <span key={emotion} className="emotion-pill" style={{ '--emotion-color': color } as React.CSSProperties}>
-              <span className="emotion-dot" style={{ background: color }} />
-              {emotion}
-            </span>
-          ))}
-        </div>
+      <section className="positioning-section">
+        <p>
+          Built for reflection and communication support — not diagnosis, treatment, or emergency care.
+          Shared spaces and live voice mediation are later milestones; the current MVP focuses on helping
+          one person prepare with more clarity.
+        </p>
       </section>
 
-      {/* Footer */}
       <footer className="home-footer">
-        <p className="footer-copy">Your feelings belong to you.</p>
-        <p className="footer-secondary">feltabout never sells your emotional data.</p>
+        <p className="footer-copy">Reflect before you react.</p>
+        <p className="footer-secondary">Your reflections stay yours.</p>
       </footer>
 
       <style>{`
@@ -156,14 +101,20 @@ export default function HomePage() {
           overflow: hidden;
         }
 
-        /* Header */
         .home-header {
           width: 100%;
-          max-width: 1100px;
+          max-width: 1120px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 2rem 0 1.5rem;
+          position: relative;
+          z-index: 2;
+        }
+
+        .brand-lockup {
+          display: inline-flex;
+          align-items: center;
         }
 
         .brand-mark {
@@ -214,44 +165,40 @@ export default function HomePage() {
           box-shadow: 0 4px 20px rgba(51, 214, 200, 0.35);
         }
 
-        /* Hero */
         .hero-section {
           flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
           width: 100%;
-          max-width: 640px;
+          max-width: 1120px;
+          display: grid;
+          grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+          align-items: center;
+          gap: clamp(2rem, 5vw, 5rem);
+          padding: clamp(3rem, 8vw, 6rem) 0 3rem;
           position: relative;
-          padding: 3rem 0;
         }
 
-        .hero-orb-field {
+        .ambient {
           position: absolute;
-          top: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 400px;
-          height: 300px;
+          border-radius: 999px;
+          filter: blur(36px);
+          opacity: 0.28;
           pointer-events: none;
-          z-index: 0;
         }
 
-        .hero-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(12px);
-          animation: orb-float 6s ease-in-out infinite;
+        .ambient-one {
+          width: 280px;
+          height: 280px;
+          background: var(--accent, #33d6c8);
+          top: 10%;
+          left: -12%;
         }
 
-        .hero-orb:nth-child(odd) { animation-delay: 0.5s; }
-        .hero-orb:nth-child(3n) { animation-delay: 1s; }
-
-        @keyframes orb-float {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(6px, -8px); }
+        .ambient-two {
+          width: 220px;
+          height: 220px;
+          background: #f4a261;
+          right: 4%;
+          bottom: 10%;
         }
 
         .hero-content {
@@ -259,50 +206,58 @@ export default function HomePage() {
           z-index: 1;
         }
 
-        .hero-headline {
-          font-size: clamp(2rem, 5vw, 3.25rem);
-          font-weight: 600;
-          color: var(--text);
-          letter-spacing: 0;
-          line-height: 1.15;
+        .eyebrow {
+          color: var(--accent, #33d6c8);
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
           margin-bottom: 1rem;
         }
 
+        .hero-headline {
+          font-size: clamp(2.35rem, 6vw, 4.75rem);
+          font-weight: 650;
+          color: var(--text);
+          letter-spacing: -0.055em;
+          line-height: 0.98;
+          margin-bottom: 1.25rem;
+          max-width: 760px;
+        }
+
         .hero-subtitle {
-          font-size: 1.125rem;
+          font-size: clamp(1.05rem, 2vw, 1.25rem);
           color: var(--text-muted);
-          max-width: 440px;
-          margin: 0 auto 2.5rem;
-          line-height: 1.5;
+          max-width: 570px;
+          line-height: 1.6;
+          margin-bottom: 2rem;
         }
 
         .hero-ctas {
           display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.75rem;
-          width: 100%;
-          max-width: 320px;
-          margin: 0 auto;
+          flex-wrap: wrap;
+          gap: 0.875rem;
         }
 
-        .btn-primary {
+        .btn-primary,
+        .btn-secondary {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 100%;
-          min-height: 56px;
-          padding: 1.1rem 2rem;
-          border: none;
+          min-height: 54px;
+          padding: 0.95rem 1.45rem;
           border-radius: 999px;
+          font-size: 0.98rem;
+          font-weight: 650;
+          text-decoration: none;
+          transition: all var(--duration-normal) var(--ease-soft);
+        }
+
+        .btn-primary {
+          border: none;
           background: var(--gradient-core);
           color: #FFFFFF;
-          font-size: 1rem;
-          font-weight: 600;
-          letter-spacing: 0.01em;
-          text-decoration: none;
           box-shadow: 0 4px 20px rgba(51, 214, 200, 0.3), 0 2px 8px rgba(0, 0, 0, 0.06);
-          transition: all var(--duration-normal) var(--ease-soft);
         }
 
         .btn-primary:hover {
@@ -311,21 +266,10 @@ export default function HomePage() {
         }
 
         .btn-secondary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          min-height: 52px;
-          padding: 0.9rem 1.75rem;
           border: 1px solid var(--border);
-          border-radius: 999px;
           background: var(--card);
-          backdrop-filter: blur(12px);
           color: var(--text-soft);
-          font-size: 0.95rem;
-          font-weight: 500;
-          text-decoration: none;
-          transition: all var(--duration-normal) var(--ease-soft);
+          backdrop-filter: blur(12px);
         }
 
         .btn-secondary:hover {
@@ -336,175 +280,98 @@ export default function HomePage() {
           box-shadow: var(--shadow-sm);
         }
 
-        /* Stats */
-        .stats-section {
-          width: 100%;
-          max-width: 800px;
-          padding: 2rem 0;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 1rem;
-        }
-
-        .stat-card {
+        .example-card {
+          position: relative;
+          z-index: 1;
           background: var(--card);
-          backdrop-filter: blur(20px);
           border: 1px solid var(--border-subtle);
-          border-radius: 20px;
-          padding: 1.25rem;
-          text-align: center;
+          border-radius: 28px;
+          padding: clamp(1.25rem, 3vw, 2rem);
           box-shadow: var(--shadow-card);
+          backdrop-filter: blur(20px);
         }
 
-        .stat-value {
-          font-size: 1.75rem;
+        .example-label {
+          color: var(--text-quiet);
+          font-size: 0.75rem;
           font-weight: 700;
-          color: var(--text);
-          margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-          font-size: 0.8rem;
-          font-weight: 500;
-          color: var(--text-soft);
-        }
-
-        .stat-unit {
-          font-size: 0.7rem;
-          color: var(--text-quiet);
-          margin-top: 0.15rem;
-        }
-
-        /* Recent */
-        .recent-section {
-          width: 100%;
-          max-width: 560px;
-          padding: 1.5rem 0;
-        }
-
-        .section-title {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--text-quiet);
           text-transform: uppercase;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.12em;
           margin-bottom: 1rem;
         }
 
-        .recent-list {
+        .example-line {
+          color: var(--text);
+          font-size: clamp(1rem, 2vw, 1.15rem);
+          line-height: 1.55;
+          padding: 1rem 0;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .example-line:first-of-type {
+          border-top: none;
+        }
+
+        .steps-section {
+          width: 100%;
+          max-width: 1120px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 1rem;
+          padding: 2rem 0;
+        }
+
+        .step-card {
           background: var(--card);
-          backdrop-filter: blur(20px);
           border: 1px solid var(--border-subtle);
-          border-radius: 20px;
-          overflow: hidden;
+          border-radius: 22px;
+          padding: 1.35rem;
           box-shadow: var(--shadow-card);
         }
 
-        .recent-item {
-          display: flex;
-          align-items: center;
-          gap: 0.875rem;
-          padding: 1rem 1.25rem;
-          border-bottom: 1px solid var(--border-subtle);
-          transition: background var(--duration-fast) var(--ease-soft);
-        }
-
-        .recent-item:last-child {
-          border-bottom: none;
-        }
-
-        .recent-item:hover {
-          background: var(--hover-bg);
-        }
-
-        .recent-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .recent-info {
-          flex: 1;
-          font-size: 0.9rem;
-        }
-
-        .recent-feeling {
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .recent-about {
-          color: var(--text-muted);
-        }
-
-        .recent-time {
+        .step-number {
+          color: var(--accent, #33d6c8);
           font-size: 0.75rem;
-          color: var(--text-quiet);
-          flex-shrink: 0;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          margin-bottom: 1rem;
         }
 
-        .see-all-link {
-          display: inline-block;
-          margin-top: 1rem;
-          font-size: 0.85rem;
-          color: var(--accent);
-          text-decoration: none;
-          font-weight: 500;
+        .step-card h2 {
+          color: var(--text);
+          font-size: 1.1rem;
+          margin-bottom: 0.5rem;
         }
 
-        .see-all-link:hover {
-          opacity: 0.8;
+        .step-card p {
+          color: var(--text-muted);
+          line-height: 1.55;
+          font-size: 0.92rem;
         }
 
-        /* Emotion Legend */
-        .emotion-legend {
+        .positioning-section {
           width: 100%;
-          max-width: 560px;
-          padding: 1.5rem 0;
+          max-width: 760px;
+          padding: 2rem 0;
+          text-align: center;
         }
 
-        .emotion-pills {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
+        .positioning-section p {
+          color: var(--text-muted);
+          line-height: 1.65;
+          font-size: 0.95rem;
         }
 
-        .emotion-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.4rem 0.875rem;
-          border-radius: 999px;
-          background: var(--card);
-          border: 1px solid var(--border-subtle);
-          font-size: 0.8rem;
-          font-weight: 500;
-          color: var(--text-soft);
-          text-transform: capitalize;
-        }
-
-        .emotion-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        /* Footer */
         .home-footer {
           width: 100%;
           max-width: 960px;
-          padding: 3rem 0 2rem;
+          padding: 2rem 0 2.5rem;
           text-align: center;
         }
 
         .footer-copy {
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           color: var(--text-soft);
           margin-bottom: 0.35rem;
         }
@@ -514,26 +381,33 @@ export default function HomePage() {
           color: var(--text-quiet);
         }
 
-        /* Responsive */
-        @media (min-width: 640px) {
+        @media (max-width: 900px) {
+          .hero-section {
+            grid-template-columns: 1fr;
+            text-align: center;
+          }
+
+          .hero-subtitle {
+            margin-left: auto;
+            margin-right: auto;
+          }
+
           .hero-ctas {
-            flex-direction: row;
-            max-width: 400px;
+            justify-content: center;
           }
 
-          .btn-primary, .btn-secondary {
-            width: auto;
-            flex: 1;
-          }
-
-          .home-nav {
-            gap: 0.5rem;
+          .steps-section {
+            grid-template-columns: 1fr;
           }
         }
 
         @media (max-width: 768px) {
           .home-nav {
             display: none;
+          }
+
+          .hero-ctas {
+            flex-direction: column;
           }
         }
       `}</style>
