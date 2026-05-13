@@ -455,6 +455,46 @@
   margin-left: 0.25rem;
 }
 
+.micHint {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  animation: hintIn 0.3s var(--ease-spring);
+  z-index: 15;
+  max-width: calc(100vw - 3rem);
+}
+
+@keyframes hintIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.micHintClose {
+  background: transparent;
+  border: none;
+  color: var(--text-quiet);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.micHintClose:hover {
+  color: var(--bg);
+}
+
 .inputFooter {
   max-width: 720px;
   margin: 0.75rem auto 0;

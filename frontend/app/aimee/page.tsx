@@ -107,6 +107,7 @@ export default function AimeePage() {
   // STT state
   const [sttSupported, setSttSupported] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [showMicHint, setShowMicHint] = useState(false)
   
   // Initialize TTS state from localStorage and browser support
   useEffect(() => {
@@ -115,6 +116,10 @@ export default function AimeePage() {
     const saved = localStorage.getItem('feltabout-tts')
     if (saved === 'true' && isTtsSupported()) {
       setTtsEnabled(true)
+    }
+    // Show mic hint on first visit
+    if (isSttSupported() && !localStorage.getItem('feltabout-mic-hint-seen')) {
+      setShowMicHint(true)
     }
   }, [])
   
@@ -321,6 +326,11 @@ export default function AimeePage() {
     setIsRecording(false)
   }
   
+  const dismissMicHint = () => {
+    setShowMicHint(false)
+    localStorage.setItem('feltabout-mic-hint-seen', 'true')
+  }
+  
   const handleStartNew = () => {
     setExtraction(null)
     setSaved(false)
@@ -497,6 +507,12 @@ export default function AimeePage() {
             >
               🎤
             </button>
+          )}
+          {showMicHint && sttSupported && (
+            <div className={styles.micHint} onClick={dismissMicHint}>
+              <span>Hold the mic to dictate. Review before sending.</span>
+              <button className={styles.micHintClose} onClick={(e) => { e.stopPropagation(); dismissMicHint(); }} aria-label="Dismiss">×</button>
+            </div>
           )}
           <button
             className={styles.sendBtn}
