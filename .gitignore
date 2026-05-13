@@ -35,3 +35,7 @@ __pycache__/
 # Logs and OS/editor files
 *.log
 .DS_Store
+
+# Piper voice models (large binary files)
+services/api/models/piper/*.onnx
+services/api/models/piper/*.onnx.json

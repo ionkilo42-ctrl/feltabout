@@ -27,9 +27,10 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/tts", tags=["tts"])
 
-# Piper configuration
+# Piper configuration - check local models first, then Docker volume
+LOCAL_MODELS_DIR = "/app/models/piper"  # Bundled models in Docker
 PIPER_VOICES_DIR = os.environ.get("PIPER_VOICES_DIR", "/data/piper/voices")
-DEFAULT_VOICE = "en_US/amy"
+DEFAULT_VOICE = "en_US-lessac-medium"
 
 class SpeakRequest(BaseModel):
     text: str
@@ -84,13 +85,15 @@ def get_available_voices() -> list[dict]:
     return voices
 
 @router.post("/speak", response_model=SpeakResponse)
-async def speak(text: str, voice: str = DEFAULT_VOICE) -> SpeakResponse:
+async def speak(request: SpeakRequest) -> SpeakResponse:
     """
     Generate speech audio using Piper TTS.
     
     Piper is a free, high-quality neural TTS system.
     No API key required.
     """
+    text = request.text
+    voice = request.voice
     import time
     start_time = time.time()
     
@@ -103,9 +106,18 @@ async def speak(text: str, voice: str = DEFAULT_VOICE) -> SpeakResponse:
             error="Piper not installed"
         )
     
-    # Build voice path
-    voice_path = f"{PIPER_VOICES_DIR}/{voice}"
-    model_file = f"{voice_path}/{voice.split('/')[-1]}.onnx"
+    # Build voice path - check local bundled models first, then Docker volume
+    # Local models: /app/models/piper/en_US-lessac-medium.onnx
+    # Docker volume: /data/piper/voices/{voice}/model.onnx
+    local_model = f"{LOCAL_MODELS_DIR}/{voice}.onnx"
+    
+    # Check local bundled model first
+    if Path(local_model).exists():
+        model_file = local_model
+    else:
+        # Fall back to Docker volume path
+        voice_path = f"{PIPER_VOICES_DIR}/{voice}"
+        model_file = f"{voice_path}/{voice.split('/')[-1]}.onnx"
     
     # Check if model exists
     if not Path(model_file).exists():

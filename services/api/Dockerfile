@@ -36,6 +36,9 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY . .
 
+# Copy Piper voice models (bundled for production)
+COPY models/piper/ /app/models/piper/
+
 # Create non-root user for security
 RUN useradd -m -r -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
