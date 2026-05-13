@@ -1,7 +1,7 @@
 /**
  * Text-to-Speech Service
  * 
- * Primary: OpenAI TTS with 'allay' voice (warm, female, friendly - perfect for Amy)
+ * Primary: Piper (free, local neural TTS)
  * Fallback: Browser Web Speech API
  * 
  * Usage:
@@ -21,7 +21,7 @@ export interface SpeakOptions {
   lang?: string
 }
 
-// API endpoint for server-side TTS
+// API endpoint for server-side TTS (Piper)
 const TTS_API_URL = '/api/tts/speak'
 
 /**
@@ -32,12 +32,12 @@ export function isTtsSupported(): boolean {
 }
 
 /**
- * Speak the given text using server-side OpenAI TTS
+ * Speak the given text using server-side Piper TTS
  * Falls back to browser TTS if API is not available
  */
 export async function speak(text: string, options?: SpeakOptions): Promise<boolean> {
   try {
-    // Try OpenAI TTS via API
+    // Try Piper TTS via API
     const response = await fetch(TTS_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,8 +47,8 @@ export async function speak(text: string, options?: SpeakOptions): Promise<boole
     if (response.ok) {
       const data = await response.json()
       
-      if (data.audio_base64 && data.provider === 'openai') {
-        // Play OpenAI audio
+      if (data.audio_base64 && data.provider === 'piper') {
+        // Play Piper audio (WAV format)
         await playAudioFromBase64(data.audio_base64)
         return true
       }
@@ -63,17 +63,17 @@ export async function speak(text: string, options?: SpeakOptions): Promise<boole
 }
 
 /**
- * Play audio from base64 MP3 data
+ * Play audio from base64 WAV data
  */
 async function playAudioFromBase64(base64: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Convert base64 to blob
+    // Convert base64 to blob (WAV format)
     const audioData = atob(base64)
     const audioArray = new Uint8Array(audioData.length)
     for (let i = 0; i < audioData.length; i++) {
       audioArray[i] = audioData.charCodeAt(i)
     }
-    const blob = new Blob([audioArray], { type: 'audio/mp3' })
+    const blob = new Blob([audioArray], { type: 'audio/wav' })
     const url = URL.createObjectURL(blob)
     
     const audio = new Audio(url)
@@ -172,15 +172,19 @@ export async function getTtsInfo(): Promise<{ provider: string; voices: string[]
   return { provider: 'browser', voices: ['default'] }
 }
 
-// ─── Future Provider Interface ───────────────────────────────────────────────
-// To add ElevenLabs:
-//   import { ElevenLabsClient } from '@/lib/voice/elevenlabs'
-//   const elevenlabs = new ElevenLabsClient(process.env.ELEVENLABS_API_KEY!)
-//   elevenlabs.speak(text, options)
-//
-// To add OpenAI Realtime:
-//   import { OpenAIRealtime } from '@/lib/voice/openai-realtime'
-//   const realtime = new OpenAIRealtime(process.env.OPENAI_API_KEY!)
-//   realtime.speak(text, options)
-//
-// Both would implement the same interface as above, making them swappable.
+/**
+ * Get TTS status (is Piper available?)
+ */
+export async function getTtsStatus(): Promise<{ provider: string; available: boolean }> {
+  try {
+    const response = await fetch('/api/tts/status')
+    if (response.ok) {
+      const data = await response.json()
+      return { provider: data.provider, available: data.available }
+    }
+  } catch {
+    // Ignore errors
+  }
+  
+  return { provider: 'browser', available: false }
+}

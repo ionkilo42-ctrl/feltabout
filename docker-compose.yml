@@ -61,6 +61,9 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ENABLE_MVP2_BACKEND_BRIDGE: "false"
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      PIPER_VOICES_DIR: /data/piper/voices
+    volumes:
+      - piper_voices:/data/piper/voices
     ports:
       - "8000:8000"
     depends_on:
@@ -97,6 +100,8 @@ services:
 # ─── Persistent Volumes ─────────────────────────────────────────────────────
 volumes:
   postgres_data:
+    driver: local
+  piper_voices:
     driver: local
 
 # ─── Network ─────────────────────────────────────────────────────────────────
