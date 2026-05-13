@@ -134,11 +134,9 @@ export default function SharedSessionPage() {
         throw new Error('Failed to send message')
       }
 
-      const msgsRes = await fetch(apiUrl(`/conversation-spaces/${spaceId}/messages`))
-      if (msgsRes.ok) {
-        const msgsData = await msgsRes.json()
-        setMessages(msgsData.messages || [])
-      }
+      // Backend returns MessagesListResponse with user + Aimee messages
+      const data = await res.json()
+      setMessages(data.messages || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {

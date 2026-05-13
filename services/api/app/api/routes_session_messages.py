@@ -20,6 +20,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.models import SessionMessage, ConversationSpace, Participant
 from app.api.routes_auth import require_user
+from app.services.v2.aimee_service import chat_with_aimee, ChatRequest
 
 router = APIRouter(prefix="/conversation-spaces", tags=["session-messages"])
 
@@ -52,17 +53,17 @@ class ParticipantsResponse(BaseModel):
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
-@router.post("/{space_id}/messages", response_model=MessageResponse, status_code=201)
+@router.post("/{space_id}/messages", response_model=MessagesListResponse, status_code=201)
 async def send_message(
     space_id: str,
     data: SendMessageRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Send a message to a conversation space.
+    Send a message to a conversation space and generate Aimee's response.
     
-    The message will be stored and Aimee will respond asynchronously.
-    For MVP, Aimee responses are generated immediately (simplified flow).
+    Aimee responds asynchronously to user messages in shared sessions.
+    This creates a real-time chat feel without WebSocket complexity.
     """
     if not data.content.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -75,12 +76,10 @@ async def send_message(
     if not space:
         raise HTTPException(status_code=404, detail="Conversation space not found")
     
-    # For MVP: create message with a placeholder participant_id
-    # In full auth flow, this would come from the session
-    # For now, we use a temporary approach
+    # Create user message
     message = SessionMessage(
         conversation_space_id=space_id,
-        participant_id=None,  # Will be set when participant joins properly
+        participant_id=None,
         sender_name=data.sender_name or "User",
         is_aimee=False,
         content=data.content.strip(),
@@ -90,14 +89,61 @@ async def send_message(
     await db.commit()
     await db.refresh(message)
     
-    return MessageResponse(
-        id=message.id,
-        conversation_space_id=message.conversation_space_id,
-        participant_id=message.participant_id,
-        sender_name=message.sender_name,
-        is_aimee=message.is_aimee,
-        content=message.content,
-        created_at=message.created_at.isoformat() if message.created_at else "",
+    # Get conversation context from recent messages (last 10)
+    recent_result = await db.execute(
+        select(SessionMessage)
+        .where(
+            SessionMessage.conversation_space_id == space_id,
+            SessionMessage.id != message.id,
+        )
+        .order_by(SessionMessage.created_at.desc())
+        .limit(10)
+    )
+    recent_messages = list(reversed(recent_result.scalars().all()))
+    
+    # Build conversation context for Aimee
+    conversation_context = "\n".join([
+        f"{'Aimee' if m.is_aimee else m.sender_name}: {m.content}"
+        for m in recent_messages
+    ])
+    
+    # Generate Aimee's response
+    aimee_response = await chat_with_aimee(
+        ChatRequest(
+            message=data.content.strip(),
+            conversation_context=conversation_context if conversation_context else None,
+        )
+    )
+    
+    # Create Aimee's message (only if not flagged for safety)
+    messages_to_return = [message]
+    if aimee_response.safety_status == "safe" and aimee_response.reply.strip():
+        aimee_message = SessionMessage(
+            conversation_space_id=space_id,
+            participant_id=None,
+            sender_name="Aimee",
+            is_aimee=True,
+            content=aimee_response.reply.strip(),
+        )
+        db.add(aimee_message)
+        await db.commit()
+        await db.refresh(aimee_message)
+        messages_to_return.append(aimee_message)
+    
+    return MessagesListResponse(
+        messages=[
+            MessageResponse(
+                id=m.id,
+                conversation_space_id=m.conversation_space_id,
+                participant_id=m.participant_id,
+                sender_name=m.sender_name,
+                is_aimee=m.is_aimee,
+                content=m.content,
+                created_at=m.created_at.isoformat() if m.created_at else "",
+            )
+            for m in messages_to_return
+        ],
+        aimee_present=True,
     )
 
 
