@@ -1,0 +1,38 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  background: var(--error-soft, rgba(212, 107, 107, 0.12));
+  border: 1px solid rgba(212, 107, 107, 0.25);
+  border-radius: 20px;
+}
+
+.icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--error, #D46B6B);
+  margin: 0 0 0.5rem;
+}
+
+.message {
+  font-size: 0.9rem;
+  color: var(--text-soft, #4A4A4A);
+  line-height: 1.5;
+  max-width: 400px;
+  margin: 0 0 1.5rem;
+}
+
+.action {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}

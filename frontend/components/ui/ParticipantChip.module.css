@@ -1,0 +1,48 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--card, rgba(255, 255, 255, 0.82));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border, #E8E4DF);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-soft, #4A4A4A);
+  transition: all var(--duration-normal, 300ms) var(--ease-soft, ease);
+}
+
+.you {
+  background: var(--gradient-soft, linear-gradient(135deg, rgba(0, 194, 255, 0.15), rgba(51, 214, 200, 0.15), rgba(255, 107, 107, 0.15), rgba(255, 181, 71, 0.15)));
+  border-color: var(--accent-border, rgba(51, 214, 200, 0.25));
+  color: var(--accent, #33D6C8);
+}
+
+.aimee {
+  background: var(--accent-soft, rgba(51, 214, 200, 0.12));
+  border-color: var(--accent-border, rgba(51, 214, 200, 0.25));
+  color: var(--accent, #33D6C8);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gradient-core, linear-gradient(135deg, #00C2FF, #33D6C8, #FF6B6B, #FFB547));
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.aimee .avatar {
+  background: var(--accent, #33D6C8);
+}
+
+.name {
+  white-space: nowrap;
+}

@@ -100,6 +100,20 @@
   --duration-fast: 150ms;
   --duration-normal: 300ms;
   --duration-slow: 500ms;
+
+  /* ═══════════════════════════════════════════════════════════
+     BACKWARD COMPATIBILITY MAPPING
+     Older token names mapped to new design system
+     ═══════════════════════════════════════════════════════════ */
+  --page-bg: var(--bg);
+  --color-bg: var(--bg);
+  --color-bg-secondary: var(--bg-deep);
+  --color-primary: var(--accent);
+  --color-border: var(--border);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-soft);
+  --color-text-primary: var(--text);
+  --color-text-secondary: var(--text-soft);
 }
 
 /* ═══════════════════════════════════════════════════════════

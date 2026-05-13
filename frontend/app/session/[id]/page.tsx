@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useParticipantStore } from '@/store/sessionStore'
+import styles from './SharedSessionRoom.module.css'
 
 interface Message {
   id: string
@@ -23,12 +24,11 @@ interface Participant {
   is_aimee: boolean
 }
 
-// Welcome messages based on participant count
 const AIME_WELCOME_BOTH = "I'm here with both of you. Start with what you want the other person to understand, and I'll help keep this clear and respectful."
 const AIME_WELCOME_ONE = "I'm here with you. Share the invite when you're ready, or start by saying what you want the other person to understand."
 const SCROLL_BOTTOM_THRESHOLD = 120
 
-export default function SharedSessionPage() {
+export default function SharedSessionRoom() {
   const params = useParams()
   const spaceId = params.id as string
 
@@ -73,8 +73,6 @@ export default function SharedSessionPage() {
     })
   }, [])
 
-  // Track scroll position inside the message pane only.
-  // Avoid scrollIntoView here: it can move the whole browser page and hide the header.
   const handleScroll = () => {
     const container = messagesContainerRef.current
     if (!container) return
@@ -114,7 +112,6 @@ export default function SharedSessionPage() {
         setMessages(initialMessages)
         setParticipants(partsData.participants || [])
 
-        // Get invite token from localStorage (with safety check)
         const storedToken = localStorage.getItem('invite_token')
         if (storedToken && storedToken !== 'undefined' && storedToken.length > 0) {
           setInviteToken(storedToken)
@@ -144,8 +141,6 @@ export default function SharedSessionPage() {
             const prevLastId = prev.at(-1)?.id || null
             const nextLastId = nextMessages.at(-1)?.id || null
 
-            // Do not replace state with an equivalent array every poll.
-            // That caused repeated scroll effects even when nothing changed.
             if (prev.length === nextMessages.length && prevLastId === nextLastId) {
               return prev
             }
@@ -171,7 +166,7 @@ export default function SharedSessionPage() {
     }
   }, [spaceId])
 
-  // Auto-scroll only when a genuinely new last message arrives, unless the user is reading older messages.
+  // Auto-scroll only when a genuinely new last message arrives
   useEffect(() => {
     const newestMessageId = messages.at(-1)?.id || null
     if (!newestMessageId || newestMessageId === lastMessageIdRef.current) return
@@ -209,19 +204,14 @@ export default function SharedSessionPage() {
         throw new Error('Failed to send message')
       }
 
-      // Backend returns MessagesListResponse with user + Aimee messages
-      // Append new messages to existing list to avoid replacing full history
       const data = await res.json()
       const newMessages = data.messages || []
       setMessages(prev => {
-        // Get IDs of existing messages to avoid duplicates
         const existingIds = new Set(prev.map((m: Message) => m.id))
-        // Filter out any duplicates and append new messages
         const uniqueNewMessages = newMessages.filter((m: Message) => !existingIds.has(m.id))
         return [...prev, ...uniqueNewMessages]
       })
 
-      // Force the message pane, not the page, to the bottom after sending.
       userScrolledUpRef.current = false
       setShowScrollToBottom(false)
       scrollMessagesToBottom('smooth')
@@ -245,90 +235,120 @@ export default function SharedSessionPage() {
     }
   }
 
-  // Show Aimee's welcome if no messages exist
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (newMessage.trim()) {
+        sendMessage(e as unknown as React.FormEvent)
+      }
+    }
+  }
+
   const showWelcome = messages.length === 0 && !isLoading
 
   if (isLoading) {
     return (
-      <main className="shared-session-page">
-        <div className="shared-session-shell">
-          <div className="session-loading">
-            <div className="debrief-loading-dots">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          </div>
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingSpinner}>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
-      </main>
+        <p className={styles.loadingText}>Loading session...</p>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <main className="shared-session-page">
-        <div className="shared-session-shell">
-          <div className="session-error card">
-            <h2>Session unavailable</h2>
-            <p>{error}</p>
-            <Link href="/" className="btn-secondary">Go home</Link>
-          </div>
-        </div>
-      </main>
+      <div className={styles.errorContainer}>
+        <span className={styles.errorIcon}>⚠️</span>
+        <h2 className={styles.errorTitle}>Session unavailable</h2>
+        <p className={styles.errorMessage}>{error}</p>
+        <Link href="/" className={styles.errorButton}>Go home</Link>
+      </div>
     )
   }
 
   return (
-    <main className="shared-session-page">
-      <div className="shared-session-shell">
-        {/* Header */}
-        <header className="shared-session-header card">
-          <div className="header-left">
-            <Link href="/" className="brand-lockup">
-              <img className="brand-mark-sm" src="/logo.png" alt="Feltabout" />
+    <div className={styles.container}>
+      {/* Sidebar */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarInner}>
+          <Link href="/" className={styles.logoLink}>
+            <img className={styles.logo} src="/logo.png" alt="Feltabout" />
+          </Link>
+          
+          <nav className={styles.sidebarNav}>
+            <Link href={`/session/${spaceId}`} className={`${styles.navItem} ${styles.active}`}>
+              <span className={styles.navIcon}>💬</span>
+              <span className={styles.navLabel}>Shared session</span>
             </Link>
-            <div className="header-titles">
-              <h1 className="session-title">Shared session</h1>
-              <p className="session-subtitle">{sessionSubtitle}</p>
+            <Link href="/" className={styles.navItem}>
+              <span className={styles.navIcon}>🏠</span>
+              <span className={styles.navLabel}>Home</span>
+            </Link>
+            <Link href="/library" className={styles.navItem}>
+              <span className={styles.navIcon}>📚</span>
+              <span className={styles.navLabel}>Library</span>
+            </Link>
+          </nav>
+
+          <div className={styles.sidebarFooter}>
+            <p className={styles.footerNote}>🔒 Your reflections stay private.</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className={styles.main}>
+        {/* Page Header */}
+        <header className={styles.pageHeader}>
+          <div className={styles.headerLeft}>
+            <div className={styles.headerTitles}>
+              <h1 className={styles.headerTitle}>Shared session</h1>
+              <p className={styles.headerSubtitle}>{sessionSubtitle}</p>
             </div>
           </div>
           {inviteToken && (
-            <button className="btn-secondary small" onClick={copyInviteLink}>
+            <button className={styles.shareButton} onClick={copyInviteLink}>
               {showCopied ? '✓ Copied!' : 'Share invite'}
             </button>
           )}
         </header>
 
-        {/* Participant chips */}
-        <div className="session-participants">
+        {/* Participants Strip */}
+        <div className={styles.participantsStrip}>
           {participants.map((p) => (
             <div
               key={p.id}
-              className={`participant-chip ${p.is_aimee ? 'aimee' : ''} ${p.display_name === displayName ? 'you' : ''}`}
+              className={`${styles.participantChip} ${p.is_aimee ? styles.aimee : ''} ${p.display_name === displayName ? styles.you : ''}`}
             >
-              <span className="chip-avatar">
+              <span className={styles.chipAvatar}>
                 {p.is_aimee ? '✨' : p.display_name.charAt(0).toUpperCase()}
               </span>
-              <span className="chip-name">
+              <span className={styles.chipName}>
                 {p.display_name}
                 {p.is_owner && ' (host)'}
-                {p.is_aimee && ' (facilitator)'}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Conversation card */}
-        <section className="shared-room card-elevated">
+        {/* Conversation Room */}
+        <div className={styles.conversationRoom}>
+          {/* Ambient glow decoration */}
+          <div className={styles.ambientGlow} />
+          
           {/* Messages */}
           <div
             ref={messagesContainerRef}
-            className="messages shared-messages"
+            className={styles.messagesContainer}
             onScroll={handleScroll}
           >
             {showWelcome && (
-              <div className="message facilitator">
-                <div className="msg-text">{aimeeWelcome}</div>
+              <div className={`${styles.message} ${styles.facilitator}`}>
+                <div className={styles.msgBubble}>{aimeeWelcome}</div>
               </div>
             )}
             {messages.map((msg) => {
@@ -338,14 +358,14 @@ export default function SharedSessionPage() {
               return (
                 <div
                   key={msg.id}
-                  className={`message ${isAimee ? 'facilitator' : isOwn ? 'speaker-b' : 'speaker-a'}`}
+                  className={`${styles.message} ${isAimee ? styles.facilitator : isOwn ? styles.speakerB : styles.speakerA}`}
                 >
-                  <span className="msg-speaker">
+                  <span className={styles.msgSpeaker}>
                     {isAimee ? '✨ Aimee' : msg.sender_name}
                     {isOwn && ' (you)'}
                   </span>
-                  <div className="msg-text">{msg.content}</div>
-                  <span className="msg-time">
+                  <div className={styles.msgBubble}>{msg.content}</div>
+                  <span className={styles.msgTime}>
                     {new Date(msg.created_at).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -358,26 +378,46 @@ export default function SharedSessionPage() {
 
           {/* Scroll to bottom button */}
           {showScrollToBottom && (
-            <button className="scroll-to-bottom-btn" onClick={scrollToBottom}>
+            <button className={styles.scrollToBottomBtn} onClick={scrollToBottom}>
               ↓ New messages
             </button>
           )}
 
-          {/* Input area */}
-          <form className="input-area shared-input" onSubmit={sendMessage}>
-            <input
-              type="text"
-              placeholder="Say what you want them to understand…"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              disabled={isTyping}
-            />
-            <button type="submit" className="send-btn" disabled={!newMessage.trim() || isTyping}>
-              {isTyping ? '...' : 'Send'}
-            </button>
-          </form>
-        </section>
-      </div>
-    </main>
+          {/* Composer */}
+          <div className={styles.composerArea}>
+            {/* Safe space note */}
+            <p className={styles.safeSpaceNote}>
+              🔒 This is a safe, private space. Only invited people can see this.
+            </p>
+            
+            {/* Input row */}
+            <div className={styles.inputRow}>
+              <button className={styles.helperBtn} title="Sparkle helper">
+                ✨
+              </button>
+              <textarea
+                className={styles.messageInput}
+                placeholder="Say what you want them to understand…"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={isTyping}
+              />
+              <button 
+                className={styles.sendBtn} 
+                onClick={(e) => sendMessage(e as unknown as React.FormEvent)}
+                disabled={!newMessage.trim() || isTyping}
+              >
+                {isTyping ? '...' : '→'}
+              </button>
+            </div>
+            <p className={styles.inputHint}>
+              Press Enter to send • Shift + Enter for new line
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
   )
 }

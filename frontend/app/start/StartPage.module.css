@@ -1,0 +1,28 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg, #F7F5F2);
+}
+
+.container {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 0.9rem;
+  color: var(--text-soft, #4A4A4A);
+  text-decoration: none;
+  transition: color var(--duration-fast, 150ms) var(--ease-soft, ease);
+}
+
+.backLink:hover {
+  color: var(--accent, #33D6C8);
+}

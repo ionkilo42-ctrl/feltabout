@@ -1,0 +1,126 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-normal, 300ms) var(--ease-soft, ease);
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.sm {
+  min-height: 36px;
+  padding: 0 1rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+}
+
+.md {
+  min-height: 48px;
+  padding: 0 1.5rem;
+  font-size: 0.9rem;
+  border-radius: 999px;
+}
+
+.lg {
+  min-height: 56px;
+  padding: 0 2rem;
+  font-size: 1rem;
+  border-radius: 999px;
+}
+
+/* Variants */
+.primary {
+  background: var(--gradient-core, linear-gradient(135deg, #00C2FF, #33D6C8, #FF6B6B, #FFB547));
+  color: white;
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.25);
+}
+
+.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(51, 214, 200, 0.35);
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.secondary {
+  background: var(--card, rgba(255, 255, 255, 0.82));
+  color: var(--text-soft, #4A4A4A);
+  border: 1px solid var(--border, #E8E4DF);
+  backdrop-filter: blur(12px);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--card-solid, white);
+  border-color: var(--border-strong, rgba(0, 0, 0, 0.08));
+  transform: translateY(-1px);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-muted, #666666);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.02));
+  color: var(--text, #1E1E1E);
+}
+
+.danger {
+  background: var(--error, #D46B6B);
+  color: white;
+}
+
+.danger:hover:not(:disabled) {
+  background: #c45a5a;
+  transform: translateY(-1px);
+}
+
+/* Full width */
+.fullWidth {
+  width: 100%;
+}
+
+/* Loading spinner */
+.loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Icon */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.label {
+  display: inline-block;
+}
