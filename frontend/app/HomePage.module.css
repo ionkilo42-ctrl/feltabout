@@ -31,8 +31,9 @@
 }
 
 .logo {
-  width: clamp(240px, 22vw, 400px);
+  width: clamp(120px, 30vw, 480px);
   height: auto;
+  max-width: 100%;
 }
 
 .nav {
@@ -299,10 +300,6 @@
 }
 
 @media (max-width: 768px) {
-  .nav {
-    display: none;
-  }
-
   .ctaGroup {
     flex-direction: column;
   }
@@ -310,5 +307,87 @@
   .primaryCta,
   .secondaryCta {
     width: 100%;
+  }
+
+}
+
+/* ── Mobile Menu ────────────────────────────────────────────── */
+.menuButton {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: var(--text);
+}
+
+.mobileMenuOverlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.mobileMenu {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100vh;
+  background: var(--card-solid, white);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 101;
+  padding: 2rem 1.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobileMenuOpen {
+  display: flex;
+}
+
+.mobileMenuHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.mobileNavLink {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-soft);
+  text-decoration: none;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: color var(--duration-fast);
+}
+
+.mobileNavLink:hover {
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .menuButton {
+    display: block;
+  }
+
+  .nav {
+    display: none;
   }
 }

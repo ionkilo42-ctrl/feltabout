@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, type ReactNode, useEffect } from 'react'
+import { useState, type ReactNode, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useParticipantStore } from '@/store/sessionStore'
+import { isSttSupported, startListening, stopListening } from '@/lib/voice/stt'
 import styles from './SessionPage.module.css'
 
 type Step = 'name-prompt' | 'input' | 'generating' | 'done' | 'error'
@@ -100,6 +101,25 @@ export default function SessionPage() {
   const [howDidItGo, setHowDidItGo] = useState<number | null>(null)
   const [whatHappened, setWhatHappened] = useState('')
   const [followupSubmitted, setFollowupSubmitted] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // STT state
+  const [sttSupported, setSttSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const stopListeningRef = useRef<(() => void) | null>(null)
+
+  // Auto-resize textarea as content grows
+  const autoResize = useCallback(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [])
+
+  useEffect(() => {
+    setSttSupported(isSttSupported())
+  }, [])
 
   useEffect(() => {
     if (participant) {
@@ -119,6 +139,41 @@ export default function SessionPage() {
       joinedAt: new Date().toISOString(),
     })
     setStep('input')
+  }
+
+  // Toggle talk mode - click to start, click again to stop
+  const handleTalkToggle = async () => {
+    if (!sttSupported) return
+
+    if (isRecording) {
+      // Stop recording
+      if (stopListeningRef.current) {
+        stopListeningRef.current()
+        stopListeningRef.current = null
+      }
+      setIsRecording(false)
+    } else {
+      // Start recording
+      setIsRecording(true)
+
+      // Use continuous listening
+      stopListeningRef.current = startListening(
+        (transcript, isFinal) => {
+          if (isFinal) {
+            // Add final transcript to input
+            setSituation((prev) => {
+              const newText = (prev ? prev + ' ' : '') + transcript
+              return newText
+            })
+          }
+        },
+        (error) => {
+          console.warn('Speech recognition error:', error)
+          setIsRecording(false)
+          stopListeningRef.current = null
+        }
+      )
+    }
   }
 
   const handleSubmit = async () => {
@@ -495,14 +550,28 @@ export default function SessionPage() {
         </div>
 
         <div className={styles.inputFields}>
-          <textarea
-            className={styles.mainInput}
-            value={situation}
-            onChange={e => setSituation(e.target.value)}
-            placeholder="Something happened, or it's been building up. Just get it out..."
-            rows={6}
-            autoFocus
-          />
+          <div className={styles.inputWithMic}>
+            <textarea
+              ref={textareaRef}
+              className={styles.mainInput}
+              value={situation}
+              onChange={e => { setSituation(e.target.value); autoResize(); }}
+              onInput={autoResize}
+              placeholder="Something happened, or it's been building up. Just get it out..."
+              rows={6}
+              autoFocus
+            />
+            {sttSupported && (
+              <button
+                className={`${styles.talkBtn} ${isRecording ? styles.recording : ''}`}
+                onClick={handleTalkToggle}
+                aria-label={isRecording ? 'Stop listening' : 'Start listening'}
+                title={isRecording ? 'Tap to stop listening' : 'Tap to start listening'}
+              >
+                {isRecording ? '⏹️' : '🎤'}
+              </button>
+            )}
+          </div>
 
           <div className={styles.optionalField}>
             <label className={styles.optionalLabel}>

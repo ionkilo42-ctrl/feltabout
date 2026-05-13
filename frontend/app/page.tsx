@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import styles from './HomePage.module.css'
 
@@ -24,7 +25,17 @@ const STEPS = [
   },
 ]
 
+const NAV_LINKS = [
+  { href: '/session', label: 'Prepare' },
+  { href: '/library', label: 'Library' },
+  { href: '/aimee', label: 'Chat with Aimee' },
+]
+
 export default function HomePage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const closeMobileMenu = () => setMobileMenuOpen(false)
+
   return (
     <main className={styles.page}>
       {/* Header */}
@@ -33,11 +44,52 @@ export default function HomePage() {
           <img className={styles.logo} src="/logo.png" alt="Feltabout" />
         </Link>
         <nav className={styles.nav}>
-          <Link href="/session" className={styles.navLink}>Prepare</Link>
-          <Link href="/library" className={styles.navLink}>Library</Link>
-          <Link href="/aimee" className={styles.navLink}>Chat with Aimee</Link>
+          {NAV_LINKS.map(link => (
+            <Link key={link.href} href={link.href} className={styles.navLink}>
+              {link.label}
+            </Link>
+          ))}
         </nav>
+        <button 
+          className={styles.menuButton}
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
       </header>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className={styles.mobileMenuOverlay}
+          onClick={closeMobileMenu}
+        />
+      )}
+      
+      {/* Mobile Menu Drawer */}
+      <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
+        <div className={styles.mobileMenuHeader}>
+          <span style={{ fontSize: '1.25rem', fontWeight: 600 }}>Menu</span>
+          <button 
+            className={styles.closeButton}
+            onClick={closeMobileMenu}
+            aria-label="Close menu"
+          >
+            ×
+          </button>
+        </div>
+        {NAV_LINKS.map(link => (
+          <Link 
+            key={link.href} 
+            href={link.href} 
+            className={styles.mobileNavLink}
+            onClick={closeMobileMenu}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
 
       {/* Hero Section */}
       <section className={styles.hero}>

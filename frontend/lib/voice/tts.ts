@@ -1,8 +1,8 @@
 /**
  * Text-to-Speech Service
  * 
- * Primary: Piper (free, local neural TTS)
- * Fallback: Browser Web Speech API
+ * Primary: Browser Web Speech API (instant, no server call)
+ * Fallback: Piper (server-side neural TTS) - disabled for speed
  * 
  * Usage:
  *   import { speak, stopSpeaking, isTtsSupported } from '@/lib/voice/tts'
@@ -21,8 +21,8 @@ export interface SpeakOptions {
   lang?: string
 }
 
-// API endpoint for server-side TTS (Piper)
-const TTS_API_URL = '/api/tts/speak'
+// API endpoint for server-side TTS (Piper) - DISABLED for speed
+// const TTS_API_URL = '/api/tts/speak'
 
 /**
  * Check if TTS is supported in the current browser
@@ -32,65 +32,15 @@ export function isTtsSupported(): boolean {
 }
 
 /**
- * Speak the given text using server-side Piper TTS
- * Falls back to browser TTS if API is not available
+ * Speak the given text using browser speech synthesis (primary)
+ * Piper TTS is disabled - browser TTS is faster and sufficient
  */
 export async function speak(text: string, options?: SpeakOptions): Promise<boolean> {
-  try {
-    // Try Piper TTS via API
-    const response = await fetch(TTS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      
-      if (data.audio_base64 && data.provider === 'piper') {
-        // Play Piper audio (WAV format)
-        await playAudioFromBase64(data.audio_base64)
-        return true
-      }
-    }
-    
-    // Fallback to browser TTS
-    return speakWithBrowser(text, options)
-  } catch (err) {
-    console.warn('Server TTS failed, falling back to browser TTS:', err)
-    return speakWithBrowser(text, options)
-  }
+  return speakWithBrowser(text, options)
 }
 
 /**
- * Play audio from base64 WAV data
- */
-async function playAudioFromBase64(base64: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // Convert base64 to blob (WAV format)
-    const audioData = atob(base64)
-    const audioArray = new Uint8Array(audioData.length)
-    for (let i = 0; i < audioData.length; i++) {
-      audioArray[i] = audioData.charCodeAt(i)
-    }
-    const blob = new Blob([audioArray], { type: 'audio/wav' })
-    const url = URL.createObjectURL(blob)
-    
-    const audio = new Audio(url)
-    audio.onended = () => {
-      URL.revokeObjectURL(url)
-      resolve()
-    }
-    audio.onerror = (e) => {
-      URL.revokeObjectURL(url)
-      reject(e)
-    }
-    audio.play()
-  })
-}
-
-/**
- * Speak using browser's speech synthesis API (fallback)
+ * Speak using browser's speech synthesis API
  */
 function speakWithBrowser(text: string, options?: SpeakOptions): boolean {
   if (!isTtsSupported()) {
@@ -159,32 +109,13 @@ export function isPaused(): boolean {
  * Get available TTS provider info
  */
 export async function getTtsInfo(): Promise<{ provider: string; voices: string[] }> {
-  try {
-    const response = await fetch('/api/tts/voices')
-    if (response.ok) {
-      return await response.json()
-    }
-  } catch {
-    // Ignore errors
-  }
-  
-  // Fallback info
+  // Browser TTS - no server call needed
   return { provider: 'browser', voices: ['default'] }
 }
 
 /**
- * Get TTS status (is Piper available?)
+ * Get TTS status
  */
 export async function getTtsStatus(): Promise<{ provider: string; available: boolean }> {
-  try {
-    const response = await fetch('/api/tts/status')
-    if (response.ok) {
-      const data = await response.json()
-      return { provider: data.provider, available: data.available }
-    }
-  } catch {
-    // Ignore errors
-  }
-  
-  return { provider: 'browser', available: false }
+  return { provider: 'browser', available: isTtsSupported() }
 }

@@ -127,7 +127,8 @@
   border-radius: 16px;
   font-size: 1rem;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
+  overflow-y: hidden;
   background: var(--card-solid);
   color: var(--text);
   outline: none;
@@ -533,6 +534,44 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* ── Mic Button ────────────────────────────────────────────── */
+.inputWithMic {
+  position: relative;
+}
+
+.talkBtn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card);
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.talkBtn:hover {
+  background: var(--hover-bg);
+  transform: scale(1.05);
+}
+
+.talkBtn.recording {
+  background: var(--error-soft, #FEE2E2);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 .btnSm {

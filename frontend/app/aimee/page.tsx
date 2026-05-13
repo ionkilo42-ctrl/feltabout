@@ -14,7 +14,7 @@ import {
   PrimaryEmotion,
 } from '../../lib/v2-api'
 import { speak, stopSpeaking, isTtsSupported } from '../../lib/voice/tts'
-import { isSttSupported, listenOnce } from '../../lib/voice/stt'
+import { isSttSupported, startListening, stopListening } from '../../lib/voice/stt'
 import styles from './AimeePage.module.css'
 
 // Convert API extraction to ExtractionData format
@@ -60,6 +60,7 @@ export default function AimeePage() {
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const hasHydratedScrollRef = useRef(false)
   const currentRequestIdRef = useRef(0)
+  const stopListeningRef = useRef<(() => void) | null>(null)
   
   // Chat state - initialize with empty time for SSR hydration safety
   const [messages, setMessages] = useState<Array<{
@@ -104,7 +105,7 @@ export default function AimeePage() {
   const [ttsEnabled, setTtsEnabled] = useState(false)
   const [ttsSupported, setTtsSupported] = useState(false)
   
-  // STT state
+  // STT state - now toggle mode
   const [sttSupported, setSttSupported] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [showMicHint, setShowMicHint] = useState(false)
@@ -299,31 +300,39 @@ export default function AimeePage() {
     }
   }
   
-  // Push-to-talk handlers
-  const handleTalkStart = async () => {
-    if (!sttSupported || loading || saving || isRecording) return
-    setIsRecording(true)
+  // Toggle talk mode - click to start, click again to stop
+  const handleTalkToggle = async () => {
+    if (!sttSupported || loading || saving) return
     
-    try {
-      const transcript = await listenOnce(15000) // 15 second max
-      if (transcript) {
-        setInputText((prev) => prev + (prev ? ' ' : '') + transcript)
+    if (isRecording) {
+      // Stop recording
+      if (stopListeningRef.current) {
+        stopListeningRef.current()
+        stopListeningRef.current = null
       }
-    } catch (err: any) {
-      if (err?.message === 'mic-permission-denied') {
-        setError('Microphone access denied. Please allow microphone access in your browser settings.')
-      } else if (err?.message === 'mic-network-error') {
-        setError('Network error. Please check your connection and try again.')
-      } else {
-        console.warn('Speech recognition error:', err)
-      }
-    } finally {
       setIsRecording(false)
+    } else {
+      // Start recording
+      setIsRecording(true)
+      
+      // Use continuous listening
+      stopListeningRef.current = startListening(
+        (transcript, isFinal) => {
+          if (isFinal) {
+            // Add final transcript to input
+            setInputText((prev) => {
+              const newText = (prev ? prev + ' ' : '') + transcript
+              return newText
+            })
+          }
+        },
+        (error) => {
+          console.warn('Speech recognition error:', error)
+          setIsRecording(false)
+          stopListeningRef.current = null
+        }
+      )
     }
-  }
-  
-  const handleTalkEnd = () => {
-    setIsRecording(false)
   }
   
   const dismissMicHint = () => {
@@ -495,22 +504,17 @@ export default function AimeePage() {
           {sttSupported && (
             <button
               className={`${styles.talkBtn} ${isRecording ? styles.recording : ''}`}
-              onMouseDown={handleTalkStart}
-              onMouseUp={handleTalkEnd}
-              onMouseLeave={handleTalkEnd}
-              onTouchStart={handleTalkStart}
-              onTouchEnd={handleTalkEnd}
-              onTouchCancel={handleTalkEnd}
+              onClick={handleTalkToggle}
               disabled={loading || saving}
-              aria-label={isRecording ? 'Recording...' : 'Hold to talk'}
-              title="Hold to talk"
+              aria-label={isRecording ? 'Stop listening' : 'Start listening'}
+              title={isRecording ? 'Tap to stop listening' : 'Tap to start listening'}
             >
-              🎤
+              {isRecording ? '⏹️' : '🎤'}
             </button>
           )}
           {showMicHint && sttSupported && (
             <div className={styles.micHint} onClick={dismissMicHint}>
-              <span>Hold the mic to dictate. Review before sending.</span>
+              <span>Tap the mic to dictate. Review before sending.</span>
               <button className={styles.micHintClose} onClick={(e) => { e.stopPropagation(); dismissMicHint(); }} aria-label="Dismiss">×</button>
             </div>
           )}
