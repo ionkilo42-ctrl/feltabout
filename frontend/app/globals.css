@@ -437,7 +437,13 @@ textarea:focus {
 
 .brand-mark {
   display: block;
-  width: clamp(168px, 18vw, 240px);
+  width: clamp(240px, 22vw, 340px);
+  height: auto;
+}
+
+.brand-mark-sm {
+  display: block;
+  width: clamp(200px, 18vw, 280px);
   height: auto;
 }
 
@@ -2343,10 +2349,7 @@ textarea:focus {
   gap: 1.25rem;
 }
 
-.brand-mark-sm {
-  height: 28px;
-  width: auto;
-}
+/* brand-mark-sm uses centralized sizing from .brand-mark-sm in BRAND COMPONENTS */
 
 .header-titles {
   display: flex;

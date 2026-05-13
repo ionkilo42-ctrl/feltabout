@@ -115,11 +115,7 @@ export default function HomePage() {
           align-items: center;
         }
 
-        .brand-mark {
-          display: block;
-          height: clamp(28px, 4vw, 40px);
-          width: auto;
-        }
+        /* Logo uses centralized sizing from globals.css */
 
         .home-nav {
           display: flex;

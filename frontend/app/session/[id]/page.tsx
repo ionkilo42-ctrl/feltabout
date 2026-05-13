@@ -23,8 +23,9 @@ interface Participant {
   is_aimee: boolean
 }
 
-// Aimee's welcome message
-const AIME_WELCOME = "I'm here with both of you. Start with what you want the other person to understand, and I'll help keep this clear and respectful."
+// Welcome messages based on participant count
+const AIME_WELCOME_BOTH = "I'm here with both of you. Start with what you want the other person to understand, and I'll help keep this clear and respectful."
+const AIME_WELCOME_ONE = "I'm here with you. Share the invite when you're ready, or start by saying what you want the other person to understand."
 
 export default function SharedSessionPage() {
   const params = useParams()
@@ -45,21 +46,28 @@ export default function SharedSessionPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
-  const isNearBottomRef = useRef(true)
-  const lastMessageCountRef = useRef(0)
+  const userScrolledUpRef = useRef(false)
 
   const currentParticipant = participant
   const displayName = currentParticipant?.displayName || 'Guest'
   const isOwner = currentParticipant?.isOwner || false
 
-  // Track scroll position to prevent auto-scroll when user is reading history
+  // Compute participant-based messages
+  const humanParticipants = participants.filter(p => !p.is_aimee)
+  const hasOtherPerson = humanParticipants.length >= 2
+  const aimeeWelcome = hasOtherPerson ? AIME_WELCOME_BOTH : AIME_WELCOME_ONE
+  const sessionSubtitle = hasOtherPerson
+    ? "Aimee is here to help both people understand each other."
+    : "Invite the other person, or start preparing what you want them to understand."
+
+  // Track scroll position - if user scrolled up, don't auto-scroll
   const handleScroll = () => {
     const container = messagesContainerRef.current
     if (!container) return
     
     const { scrollTop, scrollHeight, clientHeight } = container
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-    isNearBottomRef.current = distanceFromBottom < 100
+    userScrolledUpRef.current = distanceFromBottom > 150
   }
 
   // Fetch participants and initial messages
@@ -120,13 +128,11 @@ export default function SharedSessionPage() {
     }
   }, [spaceId])
 
-  // Auto-scroll to bottom only when user is near bottom or it's a new message they sent
+  // Auto-scroll to bottom when new messages arrive, unless user scrolled up
   useEffect(() => {
-    // Only auto-scroll if user is near bottom or this is a new user message
-    if (isNearBottomRef.current || messages.length > lastMessageCountRef.current) {
+    if (!userScrolledUpRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-    lastMessageCountRef.current = messages.length
   }, [messages])
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -164,9 +170,9 @@ export default function SharedSessionPage() {
       })
       // Force scroll to bottom after sending (user expects to see their message)
       setTimeout(() => {
-        isNearBottomRef.current = true
+        userScrolledUpRef.current = false
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 50)
+      }, 100)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
@@ -231,7 +237,7 @@ export default function SharedSessionPage() {
             </Link>
             <div className="header-titles">
               <h1 className="session-title">Shared session</h1>
-              <p className="session-subtitle">Aimee is here to help both people understand each other.</p>
+              <p className="session-subtitle">{sessionSubtitle}</p>
             </div>
           </div>
           {inviteToken && (
@@ -270,7 +276,7 @@ export default function SharedSessionPage() {
           >
             {showWelcome && (
               <div className="message facilitator">
-                <div className="msg-text">{AIME_WELCOME}</div>
+                <div className="msg-text">{aimeeWelcome}</div>
               </div>
             )}
             {messages.map((msg) => {

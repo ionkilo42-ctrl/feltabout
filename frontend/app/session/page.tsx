@@ -353,10 +353,7 @@ const styles = `
   flex: 1;
 }
 
-.brand-mark {
-  height: 24px;
-  width: auto;
-}
+/* Logo uses centralized sizing from globals.css */
 
 .session-container {
   flex: 1;
