@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useParticipantStore } from '@/store/sessionStore'
@@ -26,10 +26,10 @@ interface Participant {
 // Welcome messages based on participant count
 const AIME_WELCOME_BOTH = "I'm here with both of you. Start with what you want the other person to understand, and I'll help keep this clear and respectful."
 const AIME_WELCOME_ONE = "I'm here with you. Share the invite when you're ready, or start by saying what you want the other person to understand."
+const SCROLL_BOTTOM_THRESHOLD = 120
 
 export default function SharedSessionPage() {
   const params = useParams()
-  const router = useRouter()
   const spaceId = params.id as string
 
   const participant = useParticipantStore((s) => s.participant)
@@ -44,11 +44,9 @@ export default function SharedSessionPage() {
   const [showCopied, setShowCopied] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const userScrolledUpRef = useRef(false)
-  const hasNewMessagesRef = useRef(false)
   const lastMessageIdRef = useRef<string | null>(null)
 
   const currentParticipant = participant
@@ -60,29 +58,39 @@ export default function SharedSessionPage() {
   const hasOtherPerson = humanParticipants.length >= 2
   const aimeeWelcome = hasOtherPerson ? AIME_WELCOME_BOTH : AIME_WELCOME_ONE
   const sessionSubtitle = hasOtherPerson
-    ? "Aimee is here to help both people understand each other."
-    : "Invite the other person, or start preparing what you want them to understand."
+    ? 'Aimee is here to help both people understand each other.'
+    : 'Invite the other person, or start preparing what you want them to understand.'
 
-  // Track scroll position - only mark as scrolled up if user intentionally scrolls
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      })
+    })
+  }, [])
+
+  // Track scroll position inside the message pane only.
+  // Avoid scrollIntoView here: it can move the whole browser page and hide the header.
   const handleScroll = () => {
     const container = messagesContainerRef.current
     if (!container) return
-    
+
     const { scrollTop, scrollHeight, clientHeight } = container
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-    // Only mark as scrolled up if user has scrolled up significantly (not just from loading)
-    if (scrollTop < scrollHeight - clientHeight - 200) {
-      userScrolledUpRef.current = true
-      setShowScrollToBottom(true)
-    } else {
-      setShowScrollToBottom(false)
-    }
+    const isAwayFromBottom = distanceFromBottom > SCROLL_BOTTOM_THRESHOLD
+
+    userScrolledUpRef.current = isAwayFromBottom
+    setShowScrollToBottom(isAwayFromBottom)
   }
 
   const scrollToBottom = () => {
     userScrolledUpRef.current = false
     setShowScrollToBottom(false)
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    scrollMessagesToBottom('smooth')
   }
 
   // Fetch participants and initial messages
@@ -100,17 +108,20 @@ export default function SharedSessionPage() {
 
         const msgsData = await msgsRes.json()
         const partsData = await partsRes.json()
+        const initialMessages = msgsData.messages || []
 
-        setMessages(msgsData.messages || [])
+        lastMessageIdRef.current = initialMessages.at(-1)?.id || null
+        setMessages(initialMessages)
         setParticipants(partsData.participants || [])
-        
+
         // Get invite token from localStorage (with safety check)
         const storedToken = localStorage.getItem('invite_token')
         if (storedToken && storedToken !== 'undefined' && storedToken.length > 0) {
           setInviteToken(storedToken)
         }
-        
+
         setIsLoading(false)
+        scrollMessagesToBottom('auto')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load session')
         setIsLoading(false)
@@ -118,7 +129,7 @@ export default function SharedSessionPage() {
     }
 
     fetchInitialData()
-  }, [spaceId])
+  }, [spaceId, scrollMessagesToBottom])
 
   // Start polling for new messages
   useEffect(() => {
@@ -127,7 +138,24 @@ export default function SharedSessionPage() {
         const res = await fetch(apiUrl(`/conversation-spaces/${spaceId}/messages`))
         if (res.ok) {
           const data = await res.json()
-          setMessages(data.messages || [])
+          const nextMessages = data.messages || []
+
+          setMessages(prev => {
+            const prevLastId = prev.at(-1)?.id || null
+            const nextLastId = nextMessages.at(-1)?.id || null
+
+            // Do not replace state with an equivalent array every poll.
+            // That caused repeated scroll effects even when nothing changed.
+            if (prev.length === nextMessages.length && prevLastId === nextLastId) {
+              return prev
+            }
+
+            if (userScrolledUpRef.current && nextLastId !== prevLastId) {
+              setShowScrollToBottom(true)
+            }
+
+            return nextMessages
+          })
         }
       } catch {
         // Silently fail polling
@@ -143,12 +171,21 @@ export default function SharedSessionPage() {
     }
   }, [spaceId])
 
-  // Auto-scroll to bottom when new messages arrive, unless user scrolled up
+  // Auto-scroll only when a genuinely new last message arrives, unless the user is reading older messages.
   useEffect(() => {
-    if (!userScrolledUpRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const newestMessageId = messages.at(-1)?.id || null
+    if (!newestMessageId || newestMessageId === lastMessageIdRef.current) return
+
+    lastMessageIdRef.current = newestMessageId
+
+    if (userScrolledUpRef.current) {
+      setShowScrollToBottom(true)
+      return
     }
-  }, [messages])
+
+    setShowScrollToBottom(false)
+    scrollMessagesToBottom('smooth')
+  }, [messages, scrollMessagesToBottom])
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,7 +199,7 @@ export default function SharedSessionPage() {
       const res = await fetch(apiUrl(`/conversation-spaces/${spaceId}/messages`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           content: messageContent,
           sender_name: displayName,
         }),
@@ -183,11 +220,11 @@ export default function SharedSessionPage() {
         const uniqueNewMessages = newMessages.filter((m: Message) => !existingIds.has(m.id))
         return [...prev, ...uniqueNewMessages]
       })
-      // Force scroll to bottom after sending (user expects to see their message)
-      setTimeout(() => {
-        userScrolledUpRef.current = false
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
+
+      // Force the message pane, not the page, to the bottom after sending.
+      userScrolledUpRef.current = false
+      setShowScrollToBottom(false)
+      scrollMessagesToBottom('smooth')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
@@ -197,7 +234,7 @@ export default function SharedSessionPage() {
 
   const copyInviteLink = async () => {
     if (!inviteToken) return
-    
+
     const inviteUrl = `${window.location.origin}/join/${inviteToken}`
     try {
       await navigator.clipboard.writeText(inviteUrl)
@@ -284,8 +321,8 @@ export default function SharedSessionPage() {
         {/* Conversation card */}
         <section className="shared-room card-elevated">
           {/* Messages */}
-          <div 
-            ref={messagesContainerRef} 
+          <div
+            ref={messagesContainerRef}
             className="messages shared-messages"
             onScroll={handleScroll}
           >
@@ -297,7 +334,7 @@ export default function SharedSessionPage() {
             {messages.map((msg) => {
               const isOwn = msg.sender_name === displayName
               const isAimee = msg.is_aimee
-              
+
               return (
                 <div
                   key={msg.id}
@@ -317,7 +354,6 @@ export default function SharedSessionPage() {
                 </div>
               )
             })}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Scroll to bottom button */}
