@@ -24,7 +24,7 @@
 .brandMark {
   display: block;
   width: clamp(180px, 16vw, 240px);
-  height: auto;
+  height: 36px;
 }
 
 /* ── Container ─────────────────────────────────────────────── */
