@@ -324,9 +324,9 @@ export default function AimeePage() {
       <style>{`
         .aimee-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
         .aimee-header { display: flex; align-items: center; gap: .75rem; padding: 1rem clamp(1.5rem, 5vw, 2rem); border-bottom: 1px solid var(--border-subtle); background: var(--card); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 10; }
-        .back-link { display: flex; align-items: center; gap: .5rem; text-decoration: none; flex-shrink: 0; }
+        .back-link { display: flex; align-items: center; gap: .65rem; text-decoration: none; flex-shrink: 0; }
         .back-arrow { font-size: 1.25rem; color: var(--text-muted); font-weight: 300; }
-        .header-logo { height: 26px; width: auto; }
+        .header-logo { display: block; height: clamp(32px, 2.7vw, 40px); width: auto; }
         .header-title-group { display: flex; flex-direction: column; gap: .1rem; flex: 1; min-width: 0; }
         .guide-name { font-size: 1rem; font-weight: 600; color: var(--text); }
         .guide-status { font-size: .75rem; color: var(--text-quiet); }
