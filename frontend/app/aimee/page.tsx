@@ -13,6 +13,7 @@ import {
   EMOTION_COLORS,
   PrimaryEmotion,
 } from '../../lib/v2-api'
+import styles from './AimeePage.module.css'
 
 // Convert API extraction to ExtractionData format
 function apiToExtractionData(api: ExtractionResponse): ExtractionData {
@@ -268,61 +269,61 @@ export default function AimeePage() {
   }
   
   return (
-    <main className="aimee-page">
+    <main className={styles.page}>
       {/* Header */}
-      <header className="aimee-header">
-        <Link href="/" className="back-link">
-          <span className="back-arrow">←</span>
-          <img src="/logo.png" alt="Feltabout" className="header-logo" />
+      <header className={styles.header}>
+        <Link href="/" className={styles.backLink}>
+          <span className={styles.backArrow}>←</span>
+          <img src="/logo.png" alt="Feltabout" className={styles.headerLogo} />
         </Link>
-        <div className="header-title-group">
-          <span className="guide-name">Aimee</span>
-          <span className="guide-status">Your reflection guide</span>
+        <div className={styles.titleGroup}>
+          <span className={styles.guideName}>Aimee</span>
+          <span className={styles.guideStatus}>Your reflection guide</span>
         </div>
-        <div className="header-spacer" />
+        <div className={styles.headerSpacer} />
       </header>
 
       {/* Chat section */}
-      <section className="chat-section">
-        <div className="messages-container">
+      <section className={styles.chatSection}>
+        <div className={styles.messagesContainer}>
           {messages.map((msg) => (
-            <div key={msg.id} className={`message ${msg.speaker}`}>
+            <div key={msg.id} className={`${styles.message} ${styles[msg.speaker]}`}>
               {msg.speaker === 'aimee' && (
-                <div className="msg-avatar">
+                <div className={styles.msgAvatar}>
                   <span>A</span>
                 </div>
               )}
-              <div className="msg-bubble">
-                <p className="msg-text">{msg.text}</p>
-                <span className="msg-time">{msg.time}</span>
+              <div className={styles.msgBubble}>
+                <p className={styles.msgText}>{msg.text}</p>
+                <span className={styles.msgTime}>{msg.time}</span>
               </div>
             </div>
           ))}
           
           {/* Loading indicator */}
           {loading && (
-            <div className="message aimee loading-message">
-              <div className="msg-avatar">
+            <div className={`${styles.message} ${styles.aimee}`}>
+              <div className={styles.msgAvatar}>
                 <span>A</span>
               </div>
-              <div className="msg-bubble">
-                <p className="msg-text loading-dots">
+              <div className={styles.msgBubble}>
+                <p className={`${styles.msgText} ${styles.loadingDots}`}>
                   <span>.</span><span>.</span><span>.</span>
                 </p>
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} className="messages-end-anchor" />
+          <div ref={messagesEndRef} className={styles.messagesEndAnchor} />
         </div>
 
         {/* Success state */}
         {saved && (
-          <div className="success-container">
-            <div className="success-card">
-              <div className="success-icon">✨</div>
+          <div className={styles.successContainer}>
+            <div className={styles.successCard}>
+              <div className={styles.successIcon}>✨</div>
               <h3>Memory saved</h3>
               <p>Your reflection has been stored privately.</p>
-              <div className="success-actions">
+              <div className={styles.successActions}>
                 <button 
                   className="btn-primary"
                   onClick={() => router.push(`/memories`)}
@@ -342,17 +343,17 @@ export default function AimeePage() {
 
         {/* Error display */}
         {error && (
-          <div className="error-banner">
+          <div className={styles.errorBanner}>
             <span>⚠️</span> {error}
           </div>
         )}
       </section>
 
       {!saved && showCard && extraction && !safetyFlagged && !cardMinimized && (
-        <div className="floating-card-shell">
-          <div className="floating-card-backdrop" onClick={() => setCardMinimized(true)} />
-          <div className="floating-card-panel">
-            <div className="extraction-container">
+        <div className={styles.floatingCardShell}>
+          <div className={styles.floatingCardBackdrop} onClick={() => setCardMinimized(true)} />
+          <div className={styles.floatingCardPanel}>
+            <div className={styles.extractionContainer}>
               <ExtractionCard
                 extraction={extraction}
                 onConfirm={handleConfirm}
@@ -370,26 +371,26 @@ export default function AimeePage() {
       )}
 
       {/* Input area */}
-      <section className="input-section">
+      <section className={styles.inputSection}>
         {!saved && showCard && extraction && !safetyFlagged && cardMinimized && (
-          <div className="composer-card-zone">
+          <div className={styles.composerCardZone}>
             <button
-              className="minimized-card-indicator"
+              className={styles.minimizedCardIndicator}
               onClick={() => setCardMinimized(false)}
             >
               <div
-                className="minimized-dot"
+                className={styles.minimizedDot}
                 style={{ background: EMOTION_COLORS[extraction.primary_emotion] }}
               />
               <span>Aimee noticed: {extraction.feeling}</span>
-              <span className="minimized-expand">Review</span>
+              <span className={styles.minimizedExpand}>Review</span>
             </button>
           </div>
         )}
 
-        <div className="input-area">
+        <div className={styles.inputArea}>
           <textarea
-            className="chat-input"
+            className={styles.chatInput}
             placeholder="Tell Aimee what's on your mind..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -398,462 +399,17 @@ export default function AimeePage() {
             disabled={loading || saving}
           />
           <button
-            className="send-btn"
+            className={styles.sendBtn}
             onClick={handleSubmit}
             disabled={!inputText.trim() || loading || saving}
           >
             {loading ? '...' : 'Send'}
           </button>
         </div>
-        <div className="input-footer">
-          <span className="privacy-note">🔒 Your feelings are private</span>
+        <div className={styles.inputFooter}>
+          <span className={styles.privacyNote}>🔒 Your feelings are private</span>
         </div>
       </section>
-
-      <style>{`
-        .aimee-page {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: var(--bg);
-        }
-
-        /* Header */
-        .aimee-header {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 1rem clamp(1.5rem, 5vw, 2rem);
-          border-bottom: 1px solid var(--border-subtle);
-          background: var(--card);
-          backdrop-filter: blur(20px);
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-
-        .back-link {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          text-decoration: none;
-          flex-shrink: 0;
-        }
-
-        .back-arrow {
-          font-size: 1.25rem;
-          color: var(--text-muted);
-          font-weight: 300;
-        }
-
-        .header-logo {
-          height: 26px;
-          width: auto;
-        }
-
-        .header-title-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.1rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .guide-name {
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .guide-status {
-          font-size: 0.75rem;
-          color: var(--text-quiet);
-        }
-
-        .header-spacer {
-          width: 60px;
-          flex-shrink: 0;
-        }
-
-        /* Chat */
-        .chat-section {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          padding: 1.5rem clamp(1.5rem, 5vw, 2rem) 10rem;
-          max-width: 720px;
-          margin: 0 auto;
-          width: 100%;
-        }
-
-        .messages-container {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          min-height: 0;
-        }
-
-        .messages-end-anchor {
-          height: 1px;
-          scroll-margin-bottom: 9.5rem;
-        }
-
-        .message {
-          display: flex;
-          gap: 0.75rem;
-          max-width: 85%;
-          animation: messageIn 0.3s var(--ease-soft);
-        }
-
-        @keyframes messageIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-          align-self: flex-end;
-          flex-direction: row-reverse;
-        }
-
-        .message.aimee {
-          align-self: flex-start;
-        }
-
-        .msg-avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: var(--gradient-core);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.875rem;
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-
-        .msg-bubble {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .msg-text {
-          padding: 1rem 1.25rem;
-          border-radius: 20px;
-          font-size: 0.95rem;
-          line-height: 1.55;
-          color: var(--text-soft);
-          background: var(--card-solid);
-          border: 1px solid var(--border-subtle);
-          margin: 0;
-        }
-
-        .message.user .msg-text {
-          background: var(--accent-soft);
-          border-color: var(--accent-border);
-          color: var(--text);
-        }
-
-        .message.aimee .msg-text {
-          border-top-left-radius: 6px;
-        }
-
-        .message.user .msg-text {
-          border-top-right-radius: 6px;
-        }
-
-        .msg-time {
-          font-size: 0.7rem;
-          color: var(--text-quiet);
-          padding: 0 0.5rem;
-        }
-
-        .message.user .msg-time {
-          text-align: right;
-        }
-
-        /* Loading dots animation */
-        .loading-dots span {
-          animation: blink 1.4s infinite both;
-        }
-        .loading-dots span:nth-child(2) {
-          animation-delay: 0.2s;
-        }
-        .loading-dots span:nth-child(3) {
-          animation-delay: 0.4s;
-        }
-        @keyframes blink {
-          0%, 80%, 100% { opacity: 0; }
-          40% { opacity: 1; }
-        }
-
-        /* Error banner */
-        .error-banner {
-          padding: 0.75rem 1rem;
-          background: rgba(255, 107, 107, 0.1);
-          border: 1px solid rgba(255, 107, 107, 0.3);
-          border-radius: 12px;
-          color: #FF6B6B;
-          font-size: 0.875rem;
-          text-align: center;
-        }
-
-        /* Success container */
-        .success-container {
-          animation: cardAppear 0.4s var(--ease-spring);
-        }
-
-        @keyframes cardAppear {
-          from { opacity: 0; transform: translateY(20px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .success-card {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 2rem;
-          text-align: center;
-        }
-
-        .success-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-
-        .success-card h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: var(--text);
-          margin: 0 0 0.5rem;
-        }
-
-        .success-card p {
-          font-size: 0.9rem;
-          color: var(--text-muted);
-          margin: 0 0 1.5rem;
-        }
-
-        .success-actions {
-          display: flex;
-          gap: 0.75rem;
-          justify-content: center;
-        }
-
-        .btn-primary {
-          padding: 0.75rem 1.5rem;
-          background: var(--gradient-core);
-          color: white;
-          border: none;
-          border-radius: 999px;
-          font-size: 0.875rem;
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: none;
-        }
-
-        .btn-secondary {
-          padding: 0.75rem 1.5rem;
-          background: var(--card-solid);
-          color: var(--text-soft);
-          border: 1px solid var(--border);
-          border-radius: 999px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-        }
-
-        /* Extraction container */
-        .composer-card-zone {
-          max-width: 720px;
-          margin: 0 auto 0.9rem;
-          width: 100%;
-        }
-
-        .floating-card-shell {
-          position: fixed;
-          inset: 0;
-          z-index: 12;
-          pointer-events: none;
-        }
-
-        .floating-card-backdrop {
-          position: absolute;
-          inset: 0;
-          background: rgba(247, 244, 239, 0.58);
-          backdrop-filter: blur(6px);
-          pointer-events: auto;
-        }
-
-        .floating-card-panel {
-          position: absolute;
-          left: 50%;
-          bottom: 7.5rem;
-          transform: translateX(-50%);
-          width: min(720px, calc(100vw - 2rem));
-          max-height: min(68vh, 760px);
-          overflow-y: auto;
-          border-radius: 28px;
-          pointer-events: auto;
-          overscroll-behavior: contain;
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
-        }
-
-        .extraction-container {
-          animation: cardAppear 0.4s var(--ease-spring);
-        }
-
-        /* Minimized card */
-        .minimized-card-indicator {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          justify-content: space-between;
-          padding: 0.85rem 1rem;
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 18px;
-          cursor: pointer;
-          transition: all var(--duration-fast) var(--ease-soft);
-          width: 100%;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .minimized-card-indicator:hover {
-          background: var(--card-solid);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
-        }
-
-        .minimized-dot {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .minimized-card-indicator span:nth-child(2) {
-          flex: 1;
-          font-size: 0.88rem;
-          font-weight: 500;
-          color: var(--text);
-          text-transform: capitalize;
-          text-align: left;
-        }
-
-        .minimized-expand {
-          font-size: 0.76rem;
-          color: var(--accent);
-          font-weight: 600;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-        }
-
-        /* Input */
-        .input-section {
-          padding: 1rem clamp(1.5rem, 5vw, 2rem);
-          border-top: 1px solid var(--border-subtle);
-          background: var(--card);
-          backdrop-filter: blur(20px);
-          position: sticky;
-          bottom: 0;
-          z-index: 9;
-        }
-
-        .input-area {
-          display: flex;
-          gap: 0.75rem;
-          align-items: flex-end;
-          max-width: 720px;
-          margin: 0 auto;
-        }
-
-        .chat-input {
-          flex: 1;
-          min-height: 48px;
-          max-height: 120px;
-          padding: 0.875rem 1.25rem;
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          background: var(--card-solid);
-          font-size: 16px; /* Prevents iOS zoom on focus */
-          color: var(--text);
-          resize: none;
-          outline: none;
-          line-height: 1.5;
-          transition: border-color var(--duration-fast) var(--ease-soft);
-        }
-
-        .chat-input:focus {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-soft);
-        }
-
-        .chat-input::placeholder {
-          color: var(--text-quiet);
-        }
-
-        .send-btn {
-          min-height: 48px;
-          padding: 0 1.5rem;
-          border: none;
-          border-radius: 999px;
-          background: var(--gradient-core);
-          color: white;
-          font-size: 0.875rem;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 2px 12px rgba(51, 214, 200, 0.2);
-          transition: all var(--duration-normal) var(--ease-soft);
-        }
-
-        .send-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 20px rgba(51, 214, 200, 0.35);
-        }
-
-        .send-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .input-footer {
-          max-width: 720px;
-          margin: 0.75rem auto 0;
-          text-align: center;
-        }
-
-        .privacy-note {
-          font-size: 0.75rem;
-          color: var(--text-quiet);
-        }
-
-        /* Responsive */
-        @media (max-width: 640px) {
-          .message {
-            max-width: 92%;
-          }
-
-          .msg-avatar {
-            width: 32px;
-            height: 32px;
-            font-size: 0.8rem;
-          }
-
-          .floating-card-panel {
-            width: calc(100vw - 1rem);
-            bottom: 6.75rem;
-            max-height: 62vh;
-          }
-          
-          .success-actions {
-            flex-direction: column;
-          }
-        }
-      `}</style>
     </main>
   )
 }

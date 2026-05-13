@@ -1,10 +1,11 @@
-'use client'
+"use client"
 
 import { useState, type ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useParticipantStore } from '@/store/sessionStore'
+import styles from './SessionPage.module.css'
 
 type Step = 'name-prompt' | 'input' | 'generating' | 'done' | 'error'
 
@@ -39,7 +40,6 @@ interface GenerateResponse {
 
 type FeedbackStep = 'initial' | 'followup'
 
-// Quick reaction options for follow-up
 const REACTION_OPTIONS = [
   { value: 1, label: 'Better than expected', icon: '↑' },
   { value: 2, label: 'About the same', icon: '→' },
@@ -60,18 +60,16 @@ const DETAILS: { key: keyof PlanOutput; label: string }[] = [
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="session-page">
-      <header className="app-header">
-        <div className="brand-lockup">
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.brandLockup}>
           <Link href="/">
-            <img className="brand-mark" src="/logo.png" alt="Feltabout" />
+            <img className={styles.brandMark} src="/logo.png" alt="Feltabout" />
           </Link>
         </div>
       </header>
-
-      <div className="session-container">{children}</div>
-      <style>{styles}</style>
-    </div>
+      <div className={styles.container}>{children}</div>
+    </main>
   )
 }
 
@@ -89,24 +87,20 @@ export default function SessionPage() {
   const [showFullDetails, setShowFullDetails] = useState(false)
   const [fullOutput, setFullOutput] = useState<PlanOutput | null>(null)
   const [safetyResources, setSafetyResources] = useState<string[]>([])
-  
-  // Memory suggestion state
+
   const [memorySuggestion, setMemorySuggestion] = useState<MemorySuggestion | null>(null)
   const [reflectionId, setReflectionId] = useState<string | null>(null)
   const [memoryDismissed, setMemoryDismissed] = useState(false)
-  
-  // Feedback state
+
   const [feedbackStep, setFeedbackStep] = useState<FeedbackStep>('initial')
   const [preparedScore, setPreparedScore] = useState<number | null>(null)
   const [lessReactiveScore, setLessReactiveScore] = useState<number | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
-  
-  // Follow-up state
+
   const [howDidItGo, setHowDidItGo] = useState<number | null>(null)
   const [whatHappened, setWhatHappened] = useState('')
   const [followupSubmitted, setFollowupSubmitted] = useState(false)
 
-  // Check if user has participant info on mount
   useEffect(() => {
     if (participant) {
       setStep('input')
@@ -118,9 +112,9 @@ export default function SessionPage() {
     if (!promptName.trim()) return
 
     setParticipant({
-      participantId: '',  // Generated on backend
+      participantId: '',
       displayName: promptName.trim(),
-      spaceId: '',  // No space for individual reflection
+      spaceId: '',
       isOwner: false,
       joinedAt: new Date().toISOString(),
     })
@@ -136,8 +130,6 @@ export default function SessionPage() {
     setSafetyResources([])
 
     try {
-      // For MVP: create reflection without auth
-      // The backend's require_user() returns dev user when USE_AUTH=false
       const createRes = await fetch(apiUrl('/reflections'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +137,6 @@ export default function SessionPage() {
           title: trimmedSituation.slice(0, 80),
           situation: trimmedSituation,
           desired_outcome: desiredOutcome.trim(),
-          // Legacy fields kept empty for backward compat
           feelings: '',
           interpretation: '',
           needs: '',
@@ -180,7 +171,6 @@ export default function SessionPage() {
       } else if (generated.output) {
         setSimpleOpener(generated.output.simple_opener || generated.output.conversation_opener || '')
         setFullOutput(generated.output)
-        // Store memory suggestion if returned
         if (generated.memory_suggestion) {
           setMemorySuggestion(generated.memory_suggestion)
           setReflectionId(reflection.id)
@@ -196,7 +186,6 @@ export default function SessionPage() {
     }
   }
 
-  // Handle memory suggestion save
   const handleSaveMemory = async () => {
     if (!reflectionId) return
     try {
@@ -217,13 +206,10 @@ export default function SessionPage() {
     }
   }
 
-  // Handle memory suggestion skip
-  const handleSkipMemory = async () => {
+  const handleSkipMemory = () => {
     setMemoryDismissed(true)
-    // Optionally call dismiss endpoint
   }
 
-  // Handle initial feedback submission
   const handleSubmitFeedback = async () => {
     if (!reflectionId || preparedScore === null || lessReactiveScore === null) return
     setFeedbackSubmitting(true)
@@ -245,7 +231,6 @@ export default function SessionPage() {
     }
   }
 
-  // Handle follow-up submission
   const handleSubmitFollowup = async () => {
     if (!reflectionId) return
     try {
@@ -285,25 +270,25 @@ export default function SessionPage() {
 
   const hasDetails = fullOutput && DETAILS.some(detail => Boolean(fullOutput[detail.key]))
 
-  // Name prompt step
   if (step === 'name-prompt') {
     return (
       <PageShell>
-        <div className="name-prompt">
+        <div className={styles.namePrompt}>
           <h1>What should we call you?</h1>
-          <form onSubmit={handleNamePromptSubmit} className="name-form">
+          <form onSubmit={handleNamePromptSubmit} className={styles.nameForm}>
             <input
+              className={styles.nameInput}
               type="text"
               placeholder="Your name"
               value={promptName}
               onChange={(e) => setPromptName(e.target.value)}
               autoFocus
             />
-            <button type="submit" disabled={!promptName.trim()}>
+            <button className="btn-primary" type="submit" disabled={!promptName.trim()}>
               Continue
             </button>
           </form>
-          <p className="name-note">No account needed.</p>
+          <p className={styles.nameNote}>No account needed.</p>
         </div>
       </PageShell>
     )
@@ -312,12 +297,12 @@ export default function SessionPage() {
   if (step === 'generating') {
     return (
       <PageShell>
-        <div className="session-generating">
-          <div className="generating-card">
-            <div className="generating-animation">
-              <div className="dot"></div>
-              <div className="dot"></div>
-              <div className="dot"></div>
+        <div className={styles.generating}>
+          <div className={styles.generatingCard}>
+            <div className={styles.generatingDots}>
+              <div className={styles.dot} />
+              <div className={styles.dot} />
+              <div className={styles.dot} />
             </div>
             <h2>Finding the right words</h2>
             <p>One moment...</p>
@@ -330,9 +315,9 @@ export default function SessionPage() {
   if (step === 'error') {
     return (
       <PageShell>
-        <div className="session-intro">
+        <div className={styles.errorIntro}>
           <h2>Something went wrong</h2>
-          <p className="error-text">{error}</p>
+          <p className={styles.errorText}>{error}</p>
           <button className="btn-primary" onClick={handleRestart}>
             Try again
           </button>
@@ -344,14 +329,14 @@ export default function SessionPage() {
   if (step === 'done') {
     return (
       <PageShell>
-        <div className="session-done">
-          <div className="opener-card">
-            <div className="opener-label">One thing you could say</div>
-            <p className="opener-text">{simpleOpener}</p>
+        <div className={styles.done}>
+          <div className={styles.openerCard}>
+            <div className={styles.openerLabel}>One thing you could say</div>
+            <p className={styles.openerText}>{simpleOpener}</p>
           </div>
 
           {safetyResources.length > 0 && (
-            <div className="resources-list">
+            <div className={styles.resourcesList}>
               {safetyResources.map(resource => (
                 <p key={resource}>{resource}</p>
               ))}
@@ -359,28 +344,28 @@ export default function SessionPage() {
           )}
 
           {desiredOutcome && (
-            <div className="outcome-note">
+            <p className={styles.outcomeNote}>
               You wanted: {desiredOutcome}
-            </div>
+            </p>
           )}
 
           {hasDetails && (
-            <div className="details-section">
+            <div className={styles.detailsSection}>
               <button
-                className="details-toggle"
+                className={styles.detailsToggle}
                 onClick={() => setShowFullDetails(!showFullDetails)}
               >
                 {showFullDetails ? 'Hide details' : 'See full details'}
               </button>
 
               {showFullDetails && (
-                <div className="details-content">
+                <div className={styles.detailsContent}>
                   {DETAILS.map(detail => {
                     const value = fullOutput?.[detail.key]
                     if (!value) return null
                     return (
-                      <div key={detail.key} className="detail-card">
-                        <div className="detail-label">{detail.label}</div>
+                      <div key={detail.key} className={styles.detailCard}>
+                        <div className={styles.detailLabel}>{detail.label}</div>
                         <p>{value}</p>
                       </div>
                     )
@@ -390,14 +375,13 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Memory Suggestion Card */}
           {memorySuggestion && !memoryDismissed && (
-            <div className="memory-card">
-              <div className="memory-label">Personal insight detected</div>
-              <h3 className="memory-title">{memorySuggestion.title}</h3>
-              <p className="memory-summary">{memorySuggestion.summary}</p>
-              <p className="memory-reason">Why this matters: {memorySuggestion.reason}</p>
-              <div className="memory-actions">
+            <div className={styles.memoryCard}>
+              <div className={styles.memoryLabel}>Personal insight detected</div>
+              <h3 className={styles.memoryTitle}>{memorySuggestion.title}</h3>
+              <p className={styles.memorySummary}>{memorySuggestion.summary}</p>
+              <p className={styles.memoryReason}>Why this matters: {memorySuggestion.reason}</p>
+              <div className={styles.memoryActions}>
                 <button className="btn-primary btn-sm" onClick={handleSaveMemory}>
                   Save to my insights
                 </button>
@@ -408,34 +392,35 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Initial Feedback */}
           {feedbackStep === 'initial' && !followupSubmitted && (
-            <div className="feedback-section">
-              <h3 className="feedback-title">How did the plan feel?</h3>
-              <div className="feedback-row">
-                <span className="feedback-label">Prepared for the conversation</span>
-                <div className="score-buttons">
+            <div className={styles.feedbackSection}>
+              <h3 className={styles.feedbackTitle}>How did the plan feel?</h3>
+              <div className={styles.feedbackRow}>
+                <span className={styles.feedbackLabel}>Prepared for the conversation</span>
+                <div className={styles.scoreButtons}>
                   {[1, 2, 3].map(score => (
                     <button
                       key={score}
-                      className={`score-btn ${preparedScore === score ? 'selected' : ''}`}
+                      className={`${styles.scoreBtn} ${preparedScore === score ? styles.selected : ''}`}
                       onClick={() => setPreparedScore(score)}
                     >
-                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'} {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'}{' '}
+                      {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="feedback-row">
-                <span className="feedback-label">Feeling less reactive</span>
-                <div className="score-buttons">
+              <div className={styles.feedbackRow}>
+                <span className={styles.feedbackLabel}>Feeling less reactive</span>
+                <div className={styles.scoreButtons}>
                   {[1, 2, 3].map(score => (
                     <button
                       key={score}
-                      className={`score-btn ${lessReactiveScore === score ? 'selected' : ''}`}
+                      className={`${styles.scoreBtn} ${lessReactiveScore === score ? styles.selected : ''}`}
                       onClick={() => setLessReactiveScore(score)}
                     >
-                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'} {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'}{' '}
+                      {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
                     </button>
                   ))}
                 </div>
@@ -450,24 +435,23 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Follow-up: How did it go? */}
           {feedbackStep === 'followup' && !followupSubmitted && (
-            <div className="feedback-section">
-              <h3 className="feedback-title">How did it actually go?</h3>
-              <div className="reaction-options">
+            <div className={styles.feedbackSection}>
+              <h3 className={styles.feedbackTitle}>How did it actually go?</h3>
+              <div className={styles.reactionOptions}>
                 {REACTION_OPTIONS.map(option => (
                   <button
                     key={option.value}
-                    className={`reaction-btn ${howDidItGo === option.value ? 'selected' : ''}`}
+                    className={`${styles.reactionBtn} ${howDidItGo === option.value ? styles.selected : ''}`}
                     onClick={() => setHowDidItGo(option.value)}
                   >
-                    <span className="reaction-icon">{option.icon}</span>
-                    <span className="reaction-label">{option.label}</span>
+                    <span className={styles.reactionIcon}>{option.icon}</span>
+                    <span className={styles.reactionLabel}>{option.label}</span>
                   </button>
                 ))}
               </div>
               <textarea
-                className="feedback-textarea"
+                className={styles.feedbackTextarea}
                 placeholder="What happened? (optional)"
                 value={whatHappened}
                 onChange={e => setWhatHappened(e.target.value)}
@@ -483,14 +467,13 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Follow-up submitted */}
           {followupSubmitted && (
-            <div className="feedback-thanks">
+            <div className={styles.feedbackThanks}>
               <p>Thanks for sharing. Your experience helps improve future sessions.</p>
             </div>
           )}
 
-          <div className="done-actions">
+          <div className={styles.doneActions}>
             <button className="btn-primary" onClick={handleRestart}>
               Start another
             </button>
@@ -503,38 +486,39 @@ export default function SessionPage() {
     )
   }
 
-  // Input step
   return (
     <PageShell>
-      <div className="session-input">
-        <div className="input-header">
+      <div className={styles.inputStep}>
+        <div className={styles.inputHeader}>
           <h2>Tell me what's going on.</h2>
-          <p className="input-subtitle">Say it messy. We'll find the clarity.</p>
+          <p className={styles.inputSubtitle}>Say it messy. We'll find the clarity.</p>
         </div>
 
-        <div className="input-fields">
+        <div className={styles.inputFields}>
           <textarea
+            className={styles.mainInput}
             value={situation}
             onChange={e => setSituation(e.target.value)}
             placeholder="Something happened, or it's been building up. Just get it out..."
             rows={6}
-            className="main-input"
             autoFocus
           />
 
-          <div className="optional-field">
-            <label>What do you want from this conversation? (optional)</label>
+          <div className={styles.optionalField}>
+            <label className={styles.optionalLabel}>
+              What do you want from this conversation? (optional)
+            </label>
             <textarea
+              className={styles.secondaryInput}
               value={desiredOutcome}
               onChange={e => setDesiredOutcome(e.target.value)}
               placeholder="e.g. I want us to understand each other better, not fix everything tonight"
               rows={2}
-              className="secondary-input"
             />
           </div>
         </div>
 
-        <div className="input-actions">
+        <div className={styles.inputActions}>
           <button
             className="btn-primary"
             onClick={handleSubmit}
@@ -547,583 +531,3 @@ export default function SessionPage() {
     </PageShell>
   )
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = `
-.session-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--page-bg, #FAF9F7);
-}
-
-.app-header {
-  display: flex;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-}
-
-.brand-lockup {
-  flex: 1;
-}
-
-/* Logo uses centralized sizing from globals.css */
-
-.session-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 2rem 1.5rem;
-  max-width: 560px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Name prompt step */
-.name-prompt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  text-align: center;
-}
-
-.name-prompt h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text, #111827);
-  margin: 0 0 1.5rem;
-}
-
-.name-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  width: 100%;
-  max-width: 320px;
-}
-
-.name-form input {
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 1rem;
-  text-align: center;
-  background: white;
-}
-
-.name-form input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-}
-
-.name-form button {
-  padding: 0.875rem 1.5rem;
-  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-}
-
-.name-form button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.name-note {
-  margin-top: 1.5rem;
-  font-size: 0.85rem;
-  color: var(--text-quiet, #9ca3af);
-}
-
-/* Input step */
-.session-input {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.input-header h2 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary, #111827);
-  margin: 0 0 0.5rem;
-}
-
-.input-subtitle {
-  font-size: 1rem;
-  color: var(--text-muted, #6b7280);
-  margin: 0;
-}
-
-.input-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.main-input {
-  width: 100%;
-  padding: 1rem;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 1rem;
-  line-height: 1.6;
-  resize: vertical;
-  min-height: 160px;
-  background: white;
-  color: var(--text-primary, #111827);
-}
-
-.main-input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-  box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
-}
-
-.main-input::placeholder {
-  color: var(--text-quiet, #9ca3af);
-}
-
-.optional-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.optional-field label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary, #6b7280);
-}
-
-.secondary-input {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  resize: vertical;
-  background: white;
-  color: var(--text-primary, #111827);
-}
-
-.secondary-input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-}
-
-.secondary-input::placeholder {
-  color: var(--text-quiet, #9ca3af);
-}
-
-.input-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Generating step */
-.session-generating {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.generating-card {
-  text-align: center;
-}
-
-.generating-animation {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  background: var(--accent, #e07a5f);
-  border-radius: 50%;
-  animation: bounce 1.4s ease-in-out infinite;
-}
-
-.dot:nth-child(1) { animation-delay: 0s; }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-12px); }
-}
-
-.generating-card h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
-  margin: 0 0 0.5rem;
-}
-
-.generating-card p {
-  font-size: 0.9375rem;
-  color: var(--text-muted, #6b7280);
-  margin: 0;
-}
-
-/* Done step */
-.session-done {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.opener-card {
-  background: white;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.opener-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent, #e07a5f);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-}
-
-.opener-text {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: var(--text-primary, #111827);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.outcome-note {
-  font-size: 0.875rem;
-  color: var(--text-muted, #6b7280);
-  font-style: italic;
-}
-
-.resources-list {
-  background: white;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  padding: 1rem;
-}
-
-.resources-list p {
-  color: var(--text-primary, #111827);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  margin: 0 0 0.5rem;
-}
-
-.resources-list p:last-child {
-  margin-bottom: 0;
-}
-
-.details-section {
-  border-top: 1px solid var(--color-border, #e5e7eb);
-  padding-top: 1rem;
-}
-
-.details-toggle {
-  background: none;
-  border: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-muted, #6b7280);
-  cursor: pointer;
-  padding: 0.5rem 0;
-}
-
-.details-toggle:hover {
-  color: var(--text-primary, #111827);
-}
-
-.details-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-  margin-top: 0.75rem;
-}
-
-.detail-card {
-  background: var(--card, white);
-  border: 1px solid var(--border-subtle, #f3f4f6);
-  border-radius: 10px;
-  padding: 1rem;
-}
-
-.detail-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--text-quiet, #9ca3af);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.detail-card p {
-  font-size: 0.9375rem;
-  color: var(--text-primary, #111827);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.done-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-/* Buttons */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0.75rem 1.5rem;
-  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.3);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-ghost {
-  background: none;
-  border: none;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--text-muted, #6b7280);
-  cursor: pointer;
-  padding: 0.75rem;
-  text-align: center;
-  text-decoration: none;
-}
-
-.btn-ghost:hover {
-  color: var(--text-primary, #111827);
-}
-
-.session-intro {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  gap: 1rem;
-}
-
-.session-intro h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary, #111827);
-  margin: 0;
-}
-
-.error-text {
-  color: #dc2626;
-  font-size: 0.9375rem;
-  margin: 0;
-}
-
-/* Memory suggestion card */
-.memory-card {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid #0ea5e9;
-  border-radius: 16px;
-  padding: 1.25rem;
-}
-
-.memory-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #0284c7;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.memory-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #0c4a6e;
-  margin: 0 0 0.5rem;
-}
-
-.memory-summary {
-  font-size: 0.9375rem;
-  color: #0369a1;
-  line-height: 1.5;
-  margin: 0 0 0.5rem;
-}
-
-.memory-reason {
-  font-size: 0.8125rem;
-  color: #7dd3fc;
-  font-style: italic;
-  margin: 0 0 1rem;
-}
-
-.memory-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-sm {
-  min-height: 36px;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-}
-
-/* Feedback section */
-.feedback-section {
-  background: white;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 16px;
-  padding: 1.25rem;
-}
-
-.feedback-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
-  margin: 0 0 1rem;
-}
-
-.feedback-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.feedback-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary, #6b7280);
-}
-
-.score-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.score-btn {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  background: white;
-  font-size: 0.8125rem;
-  color: var(--text-secondary, #6b7280);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.score-btn:hover {
-  border-color: var(--accent, #e07a5f);
-  color: var(--accent, #e07a5f);
-}
-
-.score-btn.selected {
-  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
-  border-color: transparent;
-  color: white;
-}
-
-/* Reaction options */
-.reaction-options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.reaction-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 1rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.reaction-btn:hover {
-  border-color: var(--accent, #e07a5f);
-  background: #fff7f5;
-}
-
-.reaction-btn.selected {
-  border-color: var(--accent, #e07a5f);
-  background: linear-gradient(135deg, rgba(224, 122, 95, 0.1), rgba(51, 214, 200, 0.1));
-}
-
-.reaction-icon {
-  font-size: 1.5rem;
-}
-
-.reaction-label {
-  font-size: 0.8125rem;
-  color: var(--text-secondary, #6b7280);
-}
-
-.feedback-textarea {
-  width: 100%;
-  padding: 0.875rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 0.9375rem;
-  resize: vertical;
-  margin-bottom: 1rem;
-}
-
-.feedback-textarea:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-}
-
-.feedback-thanks {
-  text-align: center;
-  padding: 1rem;
-  background: linear-gradient(135deg, rgba(51, 214, 200, 0.1), rgba(224, 122, 95, 0.1));
-  border-radius: 12px;
-}
-
-.feedback-thanks p {
-  font-size: 0.9375rem;
-  color: var(--text-secondary, #6b7280);
-  margin: 0;
-}
-`
