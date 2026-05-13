@@ -13,6 +13,7 @@
 .header {
   display: flex;
   align-items: center;
+  min-height: 88px;
   padding: 1rem clamp(1rem, 5vw, 1.5rem);
   border-bottom: 1px solid var(--border);
 }
@@ -22,9 +23,11 @@
 }
 
 .brandMark {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
   display: block;
-  width: clamp(200px, 18vw, 280px);
-  height: 36px;
 }
 
 /* ── Container ─────────────────────────────────────────────── */

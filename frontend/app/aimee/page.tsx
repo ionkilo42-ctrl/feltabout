@@ -13,6 +13,7 @@ import {
   EMOTION_COLORS,
   PrimaryEmotion,
 } from '../../lib/v2-api'
+import { speak, stopSpeaking, isTtsSupported } from '../../lib/voice/tts'
 import styles from './AimeePage.module.css'
 
 // Convert API extraction to ExtractionData format
@@ -55,6 +56,7 @@ function extractionToConfirm(
 export default function AimeePage() {
   const router = useRouter()
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const hasHydratedScrollRef = useRef(false)
   const currentRequestIdRef = useRef(0)
   
@@ -97,6 +99,19 @@ export default function AimeePage() {
   // Message counter
   const [msgId, setMsgId] = useState(2)
   
+  // TTS state
+  const [ttsEnabled, setTtsEnabled] = useState(false)
+  const [ttsSupported, setTtsSupported] = useState(false)
+  
+  // Initialize TTS state from localStorage and browser support
+  useEffect(() => {
+    setTtsSupported(isTtsSupported())
+    const saved = localStorage.getItem('feltabout-tts')
+    if (saved === 'true' && isTtsSupported()) {
+      setTtsEnabled(true)
+    }
+  }, [])
+  
   // Get consistent time format that won't cause hydration mismatch
   const getTimeString = useCallback(() => {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -122,6 +137,16 @@ export default function AimeePage() {
       })
     })
   }, [messages, loading, extraction, showCard, cardMinimized, saved])
+
+  // Re-focus input after AI response completes
+  useEffect(() => {
+    if (!loading && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
   
   const addMessage = useCallback((speaker: 'aimee' | 'user', text: string) => {
     setMessages(prev => [
@@ -172,6 +197,12 @@ export default function AimeePage() {
 
       addMessage('aimee', chatResponse.reply)
       setLoading(false)
+
+      // Speak AI response if TTS is enabled
+      if (ttsEnabled && chatResponse.reply) {
+        stopSpeaking() // Stop any current speech first
+        speak(chatResponse.reply)
+      }
 
       // Handle safety flagged from chat
       if (chatResponse.safety_status === 'flagged') {
@@ -281,6 +312,25 @@ export default function AimeePage() {
           <span className={styles.guideStatus}>Your reflection guide</span>
         </div>
         <div className={styles.headerSpacer} />
+        {ttsSupported && (
+          <button
+            className={styles.ttsToggle}
+            onClick={() => {
+              if (ttsEnabled) {
+                stopSpeaking() // Stop speech when turning off
+                setTtsEnabled(false)
+                localStorage.setItem('feltabout-tts', 'false')
+              } else {
+                setTtsEnabled(true)
+                localStorage.setItem('feltabout-tts', 'true')
+              }
+            }}
+            title={ttsEnabled ? 'Turn voice responses off' : 'Turn voice responses on'}
+            aria-label={ttsEnabled ? 'Turn voice responses off' : 'Turn voice responses on'}
+          >
+            {ttsEnabled ? '🔊' : '🔇'}
+          </button>
+        )}
       </header>
 
       {/* Chat section */}
@@ -390,6 +440,7 @@ export default function AimeePage() {
 
         <div className={styles.inputArea}>
           <textarea
+            ref={inputRef}
             className={styles.chatInput}
             placeholder="Tell Aimee what's on your mind..."
             value={inputText}

@@ -66,6 +66,26 @@
   flex-shrink: 0;
 }
 
+.ttsToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-solid);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-soft);
+  flex-shrink: 0;
+}
+
+.ttsToggle:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-border);
+}
+
 /* ── Chat Section ─────────────────────────────────────────── */
 .chatSection {
   flex: 1;
