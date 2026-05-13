@@ -43,11 +43,24 @@ export default function SharedSessionPage() {
   const [showCopied, setShowCopied] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const isNearBottomRef = useRef(true)
+  const lastMessageCountRef = useRef(0)
 
   const currentParticipant = participant
   const displayName = currentParticipant?.displayName || 'Guest'
   const isOwner = currentParticipant?.isOwner || false
+
+  // Track scroll position to prevent auto-scroll when user is reading history
+  const handleScroll = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    
+    const { scrollTop, scrollHeight, clientHeight } = container
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+    isNearBottomRef.current = distanceFromBottom < 100
+  }
 
   // Fetch participants and initial messages
   useEffect(() => {
@@ -107,9 +120,13 @@ export default function SharedSessionPage() {
     }
   }, [spaceId])
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom only when user is near bottom or it's a new message they sent
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Only auto-scroll if user is near bottom or this is a new user message
+    if (isNearBottomRef.current || messages.length > lastMessageCountRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    lastMessageCountRef.current = messages.length
   }, [messages])
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -135,8 +152,21 @@ export default function SharedSessionPage() {
       }
 
       // Backend returns MessagesListResponse with user + Aimee messages
+      // Append new messages to existing list to avoid replacing full history
       const data = await res.json()
-      setMessages(data.messages || [])
+      const newMessages = data.messages || []
+      setMessages(prev => {
+        // Get IDs of existing messages to avoid duplicates
+        const existingIds = new Set(prev.map((m: Message) => m.id))
+        // Filter out any duplicates and append new messages
+        const uniqueNewMessages = newMessages.filter((m: Message) => !existingIds.has(m.id))
+        return [...prev, ...uniqueNewMessages]
+      })
+      // Force scroll to bottom after sending (user expects to see their message)
+      setTimeout(() => {
+        isNearBottomRef.current = true
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
@@ -233,7 +263,11 @@ export default function SharedSessionPage() {
         {/* Conversation card */}
         <section className="shared-room card-elevated">
           {/* Messages */}
-          <div className="messages shared-messages">
+          <div 
+            ref={messagesContainerRef} 
+            className="messages shared-messages"
+            onScroll={handleScroll}
+          >
             {showWelcome && (
               <div className="message facilitator">
                 <div className="msg-text">{AIME_WELCOME}</div>

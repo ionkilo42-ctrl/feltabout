@@ -361,7 +361,7 @@ async def chat_with_aimee(request: ChatRequest) -> ChatResponse:
             safety_status="safe",
         )
     
-    # Step 2: Build conversation context
+    # Step 2: Build conversation context with optional participant awareness
     system_prompt = """You are Aimee, a calm and thoughtful reflection guide for Feltabout.
 
 You help people understand their feelings through gentle conversation. 
@@ -383,11 +383,18 @@ Rules:
 
 Remember: you are a guide for reflection, not a therapist or advisor."""
 
-    messages = []
+    # Build full context with participant information if available
+    full_context = ""
+    if request.participant_context:
+        full_context += f"{request.participant_context}\n\n"
     if request.conversation_context:
+        full_context += f"Recent conversation:\n{request.conversation_context}\n\n"
+    
+    messages = []
+    if full_context:
         messages.append({"role": "system", "content": system_prompt})
         # Add context as a user message for continuity
-        context_msg = f"Here's our recent conversation:\n{request.conversation_context}\n\nThe person just said: {request.message}"
+        context_msg = f"{full_context}The person just said: {request.message}"
         messages.append({"role": "user", "content": context_msg})
     else:
         messages.append({"role": "system", "content": system_prompt})

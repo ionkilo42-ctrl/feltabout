@@ -147,6 +147,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Recent conversation history for context"
     )
+    participant_context: Optional[str] = Field(
+        default=None,
+        description="Information about session participants for shared session context"
+    )
 
 
 class ChatResponse(BaseModel):

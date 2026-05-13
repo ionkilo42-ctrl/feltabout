@@ -107,16 +107,28 @@ async def send_message(
         for m in recent_messages
     ])
     
-    # Generate Aimee's response
-    aimee_response = await chat_with_aimee(
-        ChatRequest(
-            message=data.content.strip(),
-            conversation_context=conversation_context if conversation_context else None,
-        )
+    # Get participants for Aimee's context
+    participants_result = await db.execute(
+        select(Participant).where(Participant.conversation_space_id == space_id)
     )
+    participants = list(participants_result.scalars().all())
+    
+    # Build participant context string
+    participant_names = [p.display_name for p in participants]
+    participant_context = None
+    if participant_names:
+        names_str = ", ".join(participant_names)
+        participant_context = f"The participants in this session are: {names_str}. The current speaker is {data.sender_name or 'User'}."
+    
+    # Generate Aimee's response with participant context
+    chat_request = ChatRequest(
+        message=data.content.strip(),
+        conversation_context=conversation_context if conversation_context else None,
+        participant_context=participant_context,
+    )
+    aimee_response = await chat_with_aimee(chat_request)
     
     # Create Aimee's message (only if not flagged for safety)
-    messages_to_return = [message]
     if aimee_response.safety_status == "safe" and aimee_response.reply.strip():
         aimee_message = SessionMessage(
             conversation_space_id=space_id,
@@ -127,8 +139,14 @@ async def send_message(
         )
         db.add(aimee_message)
         await db.commit()
-        await db.refresh(aimee_message)
-        messages_to_return.append(aimee_message)
+    
+    # Return full message list (not just latest two) to avoid replacing history
+    all_messages_result = await db.execute(
+        select(SessionMessage)
+        .where(SessionMessage.conversation_space_id == space_id)
+        .order_by(SessionMessage.created_at.asc())
+    )
+    all_messages = all_messages_result.scalars().all()
     
     return MessagesListResponse(
         messages=[
@@ -141,7 +159,7 @@ async def send_message(
                 content=m.content,
                 created_at=m.created_at.isoformat() if m.created_at else "",
             )
-            for m in messages_to_return
+            for m in all_messages
         ],
         aimee_present=True,
     )
