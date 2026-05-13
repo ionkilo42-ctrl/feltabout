@@ -14,6 +14,7 @@ import {
   PrimaryEmotion,
 } from '../../lib/v2-api'
 import { speak, stopSpeaking, isTtsSupported } from '../../lib/voice/tts'
+import { isSttSupported, listenOnce } from '../../lib/voice/stt'
 import styles from './AimeePage.module.css'
 
 // Convert API extraction to ExtractionData format
@@ -103,9 +104,14 @@ export default function AimeePage() {
   const [ttsEnabled, setTtsEnabled] = useState(false)
   const [ttsSupported, setTtsSupported] = useState(false)
   
+  // STT state
+  const [sttSupported, setSttSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  
   // Initialize TTS state from localStorage and browser support
   useEffect(() => {
     setTtsSupported(isTtsSupported())
+    setSttSupported(isSttSupported())
     const saved = localStorage.getItem('feltabout-tts')
     if (saved === 'true' && isTtsSupported()) {
       setTtsEnabled(true)
@@ -288,6 +294,27 @@ export default function AimeePage() {
     }
   }
   
+  // Push-to-talk handlers
+  const handleTalkStart = async () => {
+    if (!sttSupported || loading || saving) return
+    setIsRecording(true)
+    
+    try {
+      const transcript = await listenOnce(15000) // 15 second max
+      if (transcript) {
+        setInputText((prev) => prev + (prev ? ' ' : '') + transcript)
+      }
+    } catch (err) {
+      console.warn('Speech recognition error:', err)
+    } finally {
+      setIsRecording(false)
+    }
+  }
+  
+  const handleTalkEnd = () => {
+    setIsRecording(false)
+  }
+  
   const handleStartNew = () => {
     setExtraction(null)
     setSaved(false)
@@ -449,6 +476,22 @@ export default function AimeePage() {
             rows={1}
             disabled={loading || saving}
           />
+          {sttSupported && (
+            <button
+              className={`${styles.talkBtn} ${isRecording ? styles.recording : ''}`}
+              onMouseDown={handleTalkStart}
+              onMouseUp={handleTalkEnd}
+              onMouseLeave={handleTalkEnd}
+              onTouchStart={handleTalkStart}
+              onTouchEnd={handleTalkEnd}
+              onTouchCancel={handleTalkEnd}
+              disabled={loading || saving}
+              aria-label={isRecording ? 'Recording...' : 'Hold to talk'}
+              title="Hold to talk"
+            >
+              🎤
+            </button>
+          )}
           <button
             className={styles.sendBtn}
             onClick={handleSubmit}
