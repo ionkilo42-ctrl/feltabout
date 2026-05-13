@@ -4,33 +4,19 @@ These routes are INTERNAL/DEVELOPMENT only for MVP 1.
 They require authentication and are disabled in production unless ALLOW_V2=true.
 """
 
-import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.routes_auth import require_user
+from app.api.routes_auth import require_user, check_v2_access
 from app.schemas.v2.feeling import FeelingResponse
 from app.schemas.v2.feelflow import FeelFlowResponse, FeelMapResponse
 from app.services.v2.feeling_service import FeelingService
 from app.services.v2.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/v2/feelings", tags=["v2-feelings"])
-
-
-def _check_v2_access():
-    """Check if v2 routes are allowed in current environment."""
-    allow_v2 = os.environ.get("ALLOW_V2", "false").lower() == "true"
-    is_production = os.environ.get("ENVIRONMENT", "development") == "production"
-    
-    if is_production and not allow_v2:
-        raise HTTPException(
-            status_code=403,
-            detail="V2 routes are not enabled in production. Set ALLOW_V2=true to enable."
-        )
-from fastapi import HTTPException
 
 
 @router.get("", response_model=List[FeelingResponse])
@@ -41,7 +27,7 @@ async def list_feelings(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """List feelings for the current user."""
     feelings = await FeelingService.list_by_user(
@@ -59,7 +45,7 @@ async def get_feel_flow(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """Get time series emotional data for FeelFlow visualization."""
     return await AnalyticsService.get_feel_flow(
@@ -74,7 +60,7 @@ async def get_feel_map(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """Get emotional composition data for FeelMap treemap."""
     return await AnalyticsService.get_feel_map(db, user_id, days=days)

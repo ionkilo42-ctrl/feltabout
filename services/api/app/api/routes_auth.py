@@ -126,6 +126,41 @@ async def require_user(
     return current_user
 
 
+def _truthy(value: str | None) -> bool:
+    """Check if a value is truthy (matches config_validation.py logic)."""
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_production_like() -> bool:
+    """
+    Detect production-like environment.
+    
+    Matches config_validation.py logic: triggered by APP_ENV=production|staging
+    or USE_AUTH=true (auth mode implies production-like deployment).
+    """
+    app_env = (
+        os.environ.get("APP_ENV")
+        or os.environ.get("ENVIRONMENT")
+        or os.environ.get("ENV")
+        or "development"
+    ).strip().lower()
+    return app_env in {"prod", "production", "staging"} or _truthy(os.environ.get("USE_AUTH"))
+
+
+def check_v2_access():
+    """Check if v2 routes are allowed in current environment.
+    
+    V2 routes are disabled by default in production-like environments.
+    Set ALLOW_V2=true to explicitly enable them.
+    """
+    allow_v2 = _truthy(os.environ.get("ALLOW_V2"))
+    if is_production_like() and not allow_v2:
+        raise HTTPException(
+            status_code=403,
+            detail="V2 routes are not enabled in production. Set ALLOW_V2=true to enable."
+        )
+
+
 async def require_admin(
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),

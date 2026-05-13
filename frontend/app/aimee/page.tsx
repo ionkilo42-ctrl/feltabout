@@ -779,7 +779,7 @@ export default function AimeePage() {
           border: 1px solid var(--border);
           border-radius: 20px;
           background: var(--card-solid);
-          font-size: 0.95rem;
+          font-size: 16px; /* Prevents iOS zoom on focus */
           color: var(--text);
           resize: none;
           outline: none;

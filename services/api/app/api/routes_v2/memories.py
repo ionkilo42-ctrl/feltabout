@@ -4,14 +4,13 @@ These routes are INTERNAL/DEVELOPMENT only for MVP 1.
 They require authentication and are disabled in production unless ALLOW_V2=true.
 """
 
-import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.routes_auth import require_user
+from app.api.routes_auth import require_user, check_v2_access
 from app.schemas.v2.memory import (
     CreateMemoryRequest,
     MemoryResponse,
@@ -26,18 +25,6 @@ from app.services.v2.memory_service import MemoryService
 router = APIRouter(prefix="/v2/memories", tags=["v2-memories"])
 
 
-def _check_v2_access():
-    """Check if v2 routes are allowed in current environment."""
-    allow_v2 = os.environ.get("ALLOW_V2", "false").lower() == "true"
-    is_production = os.environ.get("ENVIRONMENT", "development") == "production"
-    
-    if is_production and not allow_v2:
-        raise HTTPException(
-            status_code=403,
-            detail="V2 routes are not enabled in production. Set ALLOW_V2=true to enable."
-        )
-
-
 @router.post("", response_model=NestedMemoryResponse, status_code=201)
 async def create_memory(
     data: CreateMemoryRequest,
@@ -45,7 +32,7 @@ async def create_memory(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """Create a memory with nested feelings, needs, entities, and topics."""
     memory = await MemoryService.create_with_nested(db, user_id, data)
@@ -91,7 +78,7 @@ async def list_memories(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """List all memories for the current user."""
     memories = await MemoryService.list_by_user(db, user_id)
@@ -105,7 +92,7 @@ async def get_memory(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """Get a specific memory with all relationships."""
     memory = await MemoryService.get_by_id(db, memory_id, user_id)
@@ -153,7 +140,7 @@ async def delete_memory(
     db: AsyncSession = Depends(get_db),
 ):
     """Check environment access."""
-    _check_v2_access()
+    check_v2_access()
     user_id = current_user["sub"]
     """Delete a memory and its associated feelings."""
     memory = await MemoryService.get_by_id(db, memory_id, user_id)

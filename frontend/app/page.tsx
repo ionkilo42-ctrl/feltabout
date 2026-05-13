@@ -31,8 +31,9 @@ export default function HomePage() {
           <img className="brand-mark" src="/logo.png" alt="Feltabout" />
         </Link>
         <nav className="home-nav">
-          <Link href="/start" className="nav-link">Start session</Link>
+          <Link href="/aimee" className="nav-link">Chat with Aimee</Link>
           <Link href="/session" className="nav-link">Prepare</Link>
+          <Link href="/start" className="nav-link">Start session</Link>
           <Link href="/library" className="nav-link">Library</Link>
         </nav>
       </header>

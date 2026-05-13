@@ -42,11 +42,14 @@ export default function SharedSessionPage() {
   const [error, setError] = useState<string | null>(null)
   const [inviteToken, setInviteToken] = useState<string | null>(null)
   const [showCopied, setShowCopied] = useState(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const userScrolledUpRef = useRef(false)
+  const hasNewMessagesRef = useRef(false)
+  const lastMessageIdRef = useRef<string | null>(null)
 
   const currentParticipant = participant
   const displayName = currentParticipant?.displayName || 'Guest'
@@ -60,14 +63,26 @@ export default function SharedSessionPage() {
     ? "Aimee is here to help both people understand each other."
     : "Invite the other person, or start preparing what you want them to understand."
 
-  // Track scroll position - if user scrolled up, don't auto-scroll
+  // Track scroll position - only mark as scrolled up if user intentionally scrolls
   const handleScroll = () => {
     const container = messagesContainerRef.current
     if (!container) return
     
     const { scrollTop, scrollHeight, clientHeight } = container
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-    userScrolledUpRef.current = distanceFromBottom > 150
+    // Only mark as scrolled up if user has scrolled up significantly (not just from loading)
+    if (scrollTop < scrollHeight - clientHeight - 200) {
+      userScrolledUpRef.current = true
+      setShowScrollToBottom(true)
+    } else {
+      setShowScrollToBottom(false)
+    }
+  }
+
+  const scrollToBottom = () => {
+    userScrolledUpRef.current = false
+    setShowScrollToBottom(false)
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   // Fetch participants and initial messages
@@ -304,6 +319,13 @@ export default function SharedSessionPage() {
             })}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Scroll to bottom button */}
+          {showScrollToBottom && (
+            <button className="scroll-to-bottom-btn" onClick={scrollToBottom}>
+              ↓ New messages
+            </button>
+          )}
 
           {/* Input area */}
           <form className="input-area shared-input" onSubmit={sendMessage}>
