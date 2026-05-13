@@ -3,7 +3,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import String, DateTime, Column
+from sqlalchemy import String, DateTime, Column, Boolean
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base
@@ -16,6 +16,7 @@ class User(Base):
     email = Column(String(256), unique=True, nullable=False, index=True)
     display_name = Column(String(128), nullable=False)
     password_hash = Column(String(256), nullable=True)  # null = magic link only, set = password auth
+    is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     reflections = relationship("Reflection", back_populates="user", cascade="all, delete-orphan")

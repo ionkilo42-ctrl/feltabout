@@ -100,8 +100,13 @@ export default function LibraryPage() {
     <main className="app">
       <header className="app-header">
         <div className="header-left">
-          <Link href="/" className="back-link">← Back</Link>
-          <h1>Library</h1>
+          <Link href="/" className="brand-lockup" aria-label="Feltabout home">
+            <img className="brand-mark-sm" src="/logo.png" alt="Feltabout" />
+          </Link>
+          <div className="page-title-group">
+            <Link href="/" className="back-link">← Back</Link>
+            <h1>Library</h1>
+          </div>
         </div>
         <div className="header-actions">
           <Link href="/session" className="btn-primary">
@@ -402,6 +407,50 @@ export default function LibraryPage() {
         .status-pending { background: #e0e7ff; color: #3730a3; }
         .status-active { background: #d1fae5; color: #065f46; }
         .status-complete { background: #f3f4f6; color: #6b7280; }
+
+        .app-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1.5rem;
+          padding: 1.5rem 0;
+          border-bottom: 1px solid var(--color-border, #e5e7eb);
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+        }
+
+        .brand-lockup {
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .page-title-group {
+          display: flex;
+          align-items: baseline;
+          gap: 0.75rem;
+        }
+
+        .back-link {
+          font-size: 0.9rem;
+          color: var(--color-text-secondary, #6b7280);
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+
+        .back-link:hover {
+          color: var(--color-text-primary, #111827);
+        }
+
+        .app-header h1 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--color-text-primary, #111827);
+          margin: 0;
+        }
 
         .header-actions {
           display: flex;

@@ -20,13 +20,32 @@ interface PlanOutput {
   repair_statement?: string
 }
 
+interface MemorySuggestion {
+  title: string
+  summary: string
+  reason: string
+  reflection_id: string
+}
+
 interface GenerateResponse {
   is_crisis: boolean
   severity: string
   message: string
   resources: string[]
   output?: PlanOutput | null
+  memory_suggestion?: MemorySuggestion | null
+  reflection_id?: string
 }
+
+type FeedbackStep = 'initial' | 'followup'
+
+// Quick reaction options for follow-up
+const REACTION_OPTIONS = [
+  { value: 1, label: 'Better than expected', icon: '↑' },
+  { value: 2, label: 'About the same', icon: '→' },
+  { value: 3, label: 'Worse than expected', icon: '↓' },
+  { value: 4, label: "Didn't have it", icon: '—' },
+] as const
 
 const DETAILS: { key: keyof PlanOutput; label: string }[] = [
   { key: 'emotional_summary', label: "What you're carrying" },
@@ -70,6 +89,22 @@ export default function SessionPage() {
   const [showFullDetails, setShowFullDetails] = useState(false)
   const [fullOutput, setFullOutput] = useState<PlanOutput | null>(null)
   const [safetyResources, setSafetyResources] = useState<string[]>([])
+  
+  // Memory suggestion state
+  const [memorySuggestion, setMemorySuggestion] = useState<MemorySuggestion | null>(null)
+  const [reflectionId, setReflectionId] = useState<string | null>(null)
+  const [memoryDismissed, setMemoryDismissed] = useState(false)
+  
+  // Feedback state
+  const [feedbackStep, setFeedbackStep] = useState<FeedbackStep>('initial')
+  const [preparedScore, setPreparedScore] = useState<number | null>(null)
+  const [lessReactiveScore, setLessReactiveScore] = useState<number | null>(null)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  
+  // Follow-up state
+  const [howDidItGo, setHowDidItGo] = useState<number | null>(null)
+  const [whatHappened, setWhatHappened] = useState('')
+  const [followupSubmitted, setFollowupSubmitted] = useState(false)
 
   // Check if user has participant info on mount
   useEffect(() => {
@@ -145,6 +180,11 @@ export default function SessionPage() {
       } else if (generated.output) {
         setSimpleOpener(generated.output.simple_opener || generated.output.conversation_opener || '')
         setFullOutput(generated.output)
+        // Store memory suggestion if returned
+        if (generated.memory_suggestion) {
+          setMemorySuggestion(generated.memory_suggestion)
+          setReflectionId(reflection.id)
+        }
       } else {
         throw new Error('No plan output returned')
       }
@@ -153,6 +193,73 @@ export default function SessionPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setStep('error')
+    }
+  }
+
+  // Handle memory suggestion save
+  const handleSaveMemory = async () => {
+    if (!reflectionId) return
+    try {
+      await fetch(apiUrl('/memories'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reflection_id: reflectionId,
+          memory_type: 'emotional_pattern',
+          title: memorySuggestion?.title,
+          content: memorySuggestion?.summary,
+          is_private: true,
+        }),
+      })
+      setMemorySuggestion(null)
+    } catch (err) {
+      console.error('Failed to save memory:', err)
+    }
+  }
+
+  // Handle memory suggestion skip
+  const handleSkipMemory = async () => {
+    setMemoryDismissed(true)
+    // Optionally call dismiss endpoint
+  }
+
+  // Handle initial feedback submission
+  const handleSubmitFeedback = async () => {
+    if (!reflectionId || preparedScore === null || lessReactiveScore === null) return
+    setFeedbackSubmitting(true)
+    try {
+      await fetch(apiUrl(`/reflections/${reflectionId}/feedback`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prepared_score: preparedScore,
+          less_reactive_score: lessReactiveScore,
+          helpful_text: '',
+        }),
+      })
+      setFeedbackStep('followup')
+    } catch (err) {
+      console.error('Failed to submit feedback:', err)
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
+
+  // Handle follow-up submission
+  const handleSubmitFollowup = async () => {
+    if (!reflectionId) return
+    try {
+      await fetch(apiUrl(`/reflections/${reflectionId}/feedback`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          how_did_it_go: howDidItGo,
+          what_happened: whatHappened,
+        }),
+      })
+      setFollowupSubmitted(true)
+    } catch (err) {
+      console.error('Failed to submit follow-up:', err)
     }
   }
 
@@ -165,6 +272,15 @@ export default function SessionPage() {
     setShowFullDetails(false)
     setFullOutput(null)
     setSafetyResources([])
+    setMemorySuggestion(null)
+    setReflectionId(null)
+    setMemoryDismissed(false)
+    setFeedbackStep('initial')
+    setPreparedScore(null)
+    setLessReactiveScore(null)
+    setHowDidItGo(null)
+    setWhatHappened('')
+    setFollowupSubmitted(false)
   }
 
   const hasDetails = fullOutput && DETAILS.some(detail => Boolean(fullOutput[detail.key]))
@@ -271,6 +387,106 @@ export default function SessionPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Memory Suggestion Card */}
+          {memorySuggestion && !memoryDismissed && (
+            <div className="memory-card">
+              <div className="memory-label">Personal insight detected</div>
+              <h3 className="memory-title">{memorySuggestion.title}</h3>
+              <p className="memory-summary">{memorySuggestion.summary}</p>
+              <p className="memory-reason">Why this matters: {memorySuggestion.reason}</p>
+              <div className="memory-actions">
+                <button className="btn-primary btn-sm" onClick={handleSaveMemory}>
+                  Save to my insights
+                </button>
+                <button className="btn-ghost btn-sm" onClick={handleSkipMemory}>
+                  Skip
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Initial Feedback */}
+          {feedbackStep === 'initial' && !followupSubmitted && (
+            <div className="feedback-section">
+              <h3 className="feedback-title">How did the plan feel?</h3>
+              <div className="feedback-row">
+                <span className="feedback-label">Prepared for the conversation</span>
+                <div className="score-buttons">
+                  {[1, 2, 3].map(score => (
+                    <button
+                      key={score}
+                      className={`score-btn ${preparedScore === score ? 'selected' : ''}`}
+                      onClick={() => setPreparedScore(score)}
+                    >
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'} {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="feedback-row">
+                <span className="feedback-label">Feeling less reactive</span>
+                <div className="score-buttons">
+                  {[1, 2, 3].map(score => (
+                    <button
+                      key={score}
+                      className={`score-btn ${lessReactiveScore === score ? 'selected' : ''}`}
+                      onClick={() => setLessReactiveScore(score)}
+                    >
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'} {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="btn-primary"
+                onClick={handleSubmitFeedback}
+                disabled={preparedScore === null || lessReactiveScore === null || feedbackSubmitting}
+              >
+                {feedbackSubmitting ? 'Saving...' : 'Continue'}
+              </button>
+            </div>
+          )}
+
+          {/* Follow-up: How did it go? */}
+          {feedbackStep === 'followup' && !followupSubmitted && (
+            <div className="feedback-section">
+              <h3 className="feedback-title">How did it actually go?</h3>
+              <div className="reaction-options">
+                {REACTION_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    className={`reaction-btn ${howDidItGo === option.value ? 'selected' : ''}`}
+                    onClick={() => setHowDidItGo(option.value)}
+                  >
+                    <span className="reaction-icon">{option.icon}</span>
+                    <span className="reaction-label">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="feedback-textarea"
+                placeholder="What happened? (optional)"
+                value={whatHappened}
+                onChange={e => setWhatHappened(e.target.value)}
+                rows={3}
+              />
+              <button
+                className="btn-primary"
+                onClick={handleSubmitFollowup}
+                disabled={howDidItGo === null}
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          {/* Follow-up submitted */}
+          {followupSubmitted && (
+            <div className="feedback-thanks">
+              <p>Thanks for sharing. Your experience helps improve future sessions.</p>
             </div>
           )}
 
@@ -737,6 +953,177 @@ const styles = `
 .error-text {
   color: #dc2626;
   font-size: 0.9375rem;
+  margin: 0;
+}
+
+/* Memory suggestion card */
+.memory-card {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #0ea5e9;
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+
+.memory-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #0284c7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.memory-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0c4a6e;
+  margin: 0 0 0.5rem;
+}
+
+.memory-summary {
+  font-size: 0.9375rem;
+  color: #0369a1;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+
+.memory-reason {
+  font-size: 0.8125rem;
+  color: #7dd3fc;
+  font-style: italic;
+  margin: 0 0 1rem;
+}
+
+.memory-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Feedback section */
+.feedback-section {
+  background: white;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+
+.feedback-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  margin: 0 0 1rem;
+}
+
+.feedback-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.feedback-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.score-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.score-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: white;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.score-btn:hover {
+  border-color: var(--accent, #e07a5f);
+  color: var(--accent, #e07a5f);
+}
+
+.score-btn.selected {
+  background: var(--gradient-core, linear-gradient(135deg, #33d6c8, #e07a5f));
+  border-color: transparent;
+  color: white;
+}
+
+/* Reaction options */
+.reaction-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.reaction-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reaction-btn:hover {
+  border-color: var(--accent, #e07a5f);
+  background: #fff7f5;
+}
+
+.reaction-btn.selected {
+  border-color: var(--accent, #e07a5f);
+  background: linear-gradient(135deg, rgba(224, 122, 95, 0.1), rgba(51, 214, 200, 0.1));
+}
+
+.reaction-icon {
+  font-size: 1.5rem;
+}
+
+.reaction-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.feedback-textarea {
+  width: 100%;
+  padding: 0.875rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--accent, #e07a5f);
+}
+
+.feedback-thanks {
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(51, 214, 200, 0.1), rgba(224, 122, 95, 0.1));
+  border-radius: 12px;
+}
+
+.feedback-thanks p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #6b7280);
   margin: 0;
 }
 `

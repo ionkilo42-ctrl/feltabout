@@ -11,6 +11,7 @@ Endpoints:
 import os
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -110,6 +111,7 @@ async def get_current_user(
 
 async def require_user(
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Require authenticated user, raise 401 if not (dev mode returns dev user when auth disabled)."""
     USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
@@ -119,8 +121,38 @@ async def require_user(
 
     # Dev mode: return dev user when auth is disabled
     if not current_user:
-        return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}
+        return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User", "is_admin": True}
 
+    return current_user
+
+
+async def require_admin(
+    current_user: dict = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Require admin user. Checks is_admin flag in database.
+    
+    Dev mode: dev-user-001 is automatically an admin.
+    Production: Must have is_admin=True in users table.
+    """
+    # Dev mode shortcut
+    if current_user.get("sub") == "dev-user-001":
+        return current_user
+    
+    # Check database for admin flag
+    from app.models.user import User
+    result = await db.execute(
+        select(User).where(User.id == current_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+    
     return current_user
 
 
