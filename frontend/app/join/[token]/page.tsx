@@ -23,7 +23,13 @@ export default function JoinSessionPage() {
   useEffect(() => {
     const validateToken = async () => {
       try {
-        const res = await fetch(apiUrl(`/conversation-spaces/join/${token}`))
+        // Use correct endpoint: /conversation-spaces/verify-invite/{token}
+        const verifyUrl = apiUrl(`/conversation-spaces/verify-invite/${encodeURIComponent(token)}`)
+        console.log('join token:', token)
+        console.log('verify url:', verifyUrl)
+        
+        const res = await fetch(verifyUrl)
+        console.log('verify response status:', res.status)
         
         if (!res.ok) {
           if (res.status === 404) {
@@ -36,9 +42,11 @@ export default function JoinSessionPage() {
         }
 
         const data = await res.json()
-        setSpaceName(data.name || 'Shared Session')
+        console.log('verify response data:', data)
+        setSpaceName(data.space_name || 'Shared Session')
         setIsLoading(false)
-      } catch {
+      } catch (err) {
+        console.error('Token validation error:', err)
         setError('Failed to connect. Please check your connection and try again.')
         setIsLoading(false)
       }
@@ -55,25 +63,46 @@ export default function JoinSessionPage() {
     setError(null)
 
     try {
-      // Join the space
-      const joinRes = await fetch(apiUrl(`/conversation-spaces/join/${token}`), {
+      // First verify the token to get space_id
+      const verifyUrl = apiUrl(`/conversation-spaces/verify-invite/${encodeURIComponent(token)}`)
+      const verifyRes = await fetch(verifyUrl)
+      
+      if (!verifyRes.ok) {
+        throw new Error('This invite link is invalid or has expired.')
+      }
+
+      const verifyData = await verifyRes.json()
+      const spaceId = verifyData.space_id
+
+      if (!spaceId) {
+        throw new Error('Could not find the session associated with this invite.')
+      }
+
+      // Now join the space with correct endpoint: POST /conversation-spaces/{space_id}/join
+      const joinUrl = apiUrl(`/conversation-spaces/${spaceId}/join`)
+      console.log('join url:', joinUrl)
+      
+      const joinRes = await fetch(joinUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: displayName.trim() }),
       })
+      
+      console.log('join response status:', joinRes.status)
 
       if (!joinRes.ok) {
-        throw new Error('Failed to join session')
+        const errorData = await joinRes.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to join session')
       }
 
       const data = await joinRes.json()
-      const spaceId = data.space_id
+      console.log('join response data:', data)
 
       // Store in localStorage
       localStorage.setItem('current_space_id', spaceId)
       localStorage.setItem('invite_token', token)
 
-      // Set participant in store
+      // Set participant in store with data from join response
       setParticipant({
         participantId: data.participant_id || 'guest',
         displayName: displayName.trim(),
@@ -85,6 +114,7 @@ export default function JoinSessionPage() {
       // Redirect to session
       router.push(`/session/${spaceId}`)
     } catch (err) {
+      console.error('Join error:', err)
       setError(err instanceof Error ? err.message : 'Failed to join session')
       setIsJoining(false)
     }
