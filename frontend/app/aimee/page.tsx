@@ -296,7 +296,7 @@ export default function AimeePage() {
   
   // Push-to-talk handlers
   const handleTalkStart = async () => {
-    if (!sttSupported || loading || saving) return
+    if (!sttSupported || loading || saving || isRecording) return
     setIsRecording(true)
     
     try {
@@ -304,8 +304,14 @@ export default function AimeePage() {
       if (transcript) {
         setInputText((prev) => prev + (prev ? ' ' : '') + transcript)
       }
-    } catch (err) {
-      console.warn('Speech recognition error:', err)
+    } catch (err: any) {
+      if (err?.message === 'mic-permission-denied') {
+        setError('Microphone access denied. Please allow microphone access in your browser settings.')
+      } else if (err?.message === 'mic-network-error') {
+        setError('Network error. Please check your connection and try again.')
+      } else {
+        console.warn('Speech recognition error:', err)
+      }
     } finally {
       setIsRecording(false)
     }

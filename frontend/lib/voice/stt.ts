@@ -147,10 +147,22 @@ export function listenOnce(timeoutMs = 10000): Promise<string> {
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       clearTimeout(timeoutId)
-      if (event.error === 'no-speech') {
-        resolve('')
-      } else {
-        reject(new Error(event.error))
+      switch (event.error) {
+        case 'no-speech':
+          resolve('')
+          break
+        case 'not-allowed':
+        case 'permission-denied':
+          reject(new Error('mic-permission-denied'))
+          break
+        case 'network':
+          reject(new Error('mic-network-error'))
+          break
+        case 'aborted':
+          resolve(finalTranscript.trim())
+          break
+        default:
+          reject(new Error(event.error))
       }
     }
 
