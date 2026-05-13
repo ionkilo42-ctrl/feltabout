@@ -23,7 +23,7 @@
 
 .brandMark {
   display: block;
-  width: clamp(180px, 16vw, 240px);
+  width: clamp(200px, 18vw, 280px);
   height: 36px;
 }
 
