@@ -1,0 +1,230 @@
+/**
+ * VoiceComposer Styles
+ */
+
+.voiceComposer {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.micBtn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  background: var(--gradient-soft, linear-gradient(135deg, rgba(0, 194, 255, 0.15), rgba(51, 214, 200, 0.15), rgba(255, 107, 107, 0.15), rgba(255, 181, 71, 0.15)));
+  color: var(--accent, #33D6C8);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all var(--duration-normal, 300ms) var(--ease-soft, ease);
+  position: relative;
+  overflow: visible;
+}
+
+.micBtn:hover:not(:disabled) {
+  background: var(--accent-soft, rgba(51, 214, 200, 0.12));
+  transform: scale(1.05);
+}
+
+.micBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Recording state */
+.micBtn.recording {
+  background: var(--accent, #33D6C8);
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(51, 214, 200, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(51, 214, 200, 0);
+  }
+}
+
+.micIcon {
+  font-size: 1.1rem;
+}
+
+.recordingIcon {
+  font-size: 1rem;
+  color: #FF6B6B;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.recordingPulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  background: var(--accent, #33D6C8);
+  opacity: 0;
+  animation: ripple 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Error hints */
+.errorHint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--card-solid, white);
+  border: 1px solid var(--border, #E8E4DF);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.08));
+  font-size: 0.75rem;
+  color: var(--text-soft, #4A4A4A);
+  white-space: nowrap;
+  z-index: 10;
+  animation: fadeIn 200ms ease-out;
+}
+
+.errorHint::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--card-solid, white);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.errorDismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg, #F7F5F2);
+  color: var(--text-soft, #4A4A4A);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) ease;
+}
+
+.errorDismiss:hover {
+  background: var(--border, #E8E4DF);
+}
+
+/* Mic hint tooltip */
+.micHint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--text, #1E1E1E);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 0.75rem;
+  color: white;
+  white-space: nowrap;
+  z-index: 10;
+  cursor: pointer;
+  animation: fadeIn 200ms ease-out;
+}
+
+.micHint::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--text, #1E1E1E);
+}
+
+.hintClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) ease;
+}
+
+.hintClose:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .micBtn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .errorHint,
+  .micHint {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  
+  .errorHint::after,
+  .micHint::after {
+    left: auto;
+    right: 16px;
+    transform: none;
+  }
+}

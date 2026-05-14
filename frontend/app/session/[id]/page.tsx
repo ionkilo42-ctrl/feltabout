@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useParticipantStore } from '@/store/sessionStore'
+import VoiceComposer from '@/components/ui/VoiceComposer'
+import { useTextToSpeech } from '@/hooks/useTextToSpeech'
 import styles from './SharedSessionRoom.module.css'
 
 interface Message {
@@ -244,6 +246,28 @@ export default function SharedSessionRoom() {
     }
   }
 
+  // Handle voice transcript additions
+  const handleTranscript = useCallback((transcript: string) => {
+    setNewMessage((prev) => {
+      const newText = (prev ? prev + ' ' : '') + transcript
+      return newText
+    })
+  }, [])
+
+  const handleVoiceError = useCallback((error: string) => {
+    console.warn('Voice error:', error)
+  }, [])
+
+  // TTS hook for speaking Aimee messages
+  const { isSupported: ttsSupported, isSpeaking, speak, stop, isEnabled: ttsEnabled, toggleEnabled: toggleTts } = useTextToSpeech()
+
+  const handleSpeakAimee = useCallback((content: string) => {
+    if (ttsEnabled) {
+      stop() // Stop any current speech
+      speak(content)
+    }
+  }, [ttsEnabled, speak, stop])
+
   const showWelcome = messages.length === 0 && !isLoading
 
   if (isLoading) {
@@ -385,6 +409,18 @@ export default function SharedSessionRoom() {
 
           {/* Composer */}
           <div className={styles.composerArea}>
+            {/* TTS toggle button */}
+            {ttsSupported && (
+              <button
+                className={styles.ttsToggle}
+                onClick={toggleTts}
+                title={ttsEnabled ? 'Turn voice off' : 'Turn voice on'}
+                aria-label={ttsEnabled ? 'Turn voice off' : 'Turn voice on'}
+              >
+                {ttsEnabled ? '🔊' : '🔇'}
+                {isSpeaking && <span className={styles.speakingDot} />}
+              </button>
+            )}
             {/* Safe space note */}
             <p className={styles.safeSpaceNote}>
               🔒 This is a safe, private space. Only invited people can see this.
@@ -392,9 +428,11 @@ export default function SharedSessionRoom() {
             
             {/* Input row */}
             <div className={styles.inputRow}>
-              <button className={styles.helperBtn} title="Sparkle helper">
-                ✨
-              </button>
+              <VoiceComposer
+                onTranscript={handleTranscript}
+                onError={handleVoiceError}
+                disabled={isTyping}
+              />
               <textarea
                 className={styles.messageInput}
                 placeholder="Say what you want them to understand…"
