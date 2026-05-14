@@ -102,6 +102,8 @@ export default function SessionPage() {
   const [whatHappened, setWhatHappened] = useState('')
   const [followupSubmitted, setFollowupSubmitted] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  // Guard against React StrictMode double-invoke (effects run twice in dev)
+  const isSubmittingRef = useRef(false)
 
   // STT state
   const [sttSupported, setSttSupported] = useState(false)
@@ -180,6 +182,10 @@ export default function SessionPage() {
     const trimmedSituation = situation.trim()
     if (!trimmedSituation) return
 
+    // Guard against double-submit (React StrictMode + network retry)
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+
     setStep('generating')
     setError(null)
     setSafetyResources([])
@@ -238,6 +244,8 @@ export default function SessionPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setStep('error')
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 

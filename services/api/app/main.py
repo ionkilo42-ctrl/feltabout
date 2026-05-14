@@ -23,6 +23,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
+# Configure root logger so app.* loggers write to stdout alongside uvicorn logs
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO"),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 _allowed_origins = os.environ.get(
