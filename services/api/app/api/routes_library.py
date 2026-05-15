@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models.reflection import Reflection
 from app.models.conversation_space import ConversationSpace
 from app.models.participant import Participant
+from app.models.v2 import Memory
 from app.api.routes_auth import require_user
 from app.services import ReflectionService
 
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/library", tags=["library"])
 
 class LibraryItemResponse(BaseModel):
     """Single unified item for the library view."""
-    type: str  # "reflection" or "conversation"
+    type: str  # "reflection", "memory", or "conversation"
     id: str
     name: str  # title for reflections, name for conversations
     created_at: str  # ISO format
@@ -53,6 +54,10 @@ async def get_library(
 
     # Get decrypted reflections for this user.
     reflections = await ReflectionService.list_by_user(db, user_id)
+    memories_result = await db.execute(
+        select(Memory).where(Memory.user_id == user_id).order_by(Memory.created_at.desc())
+    )
+    memories = list(memories_result.scalars().all())
 
     # Get conversation spaces where user is owner OR participant
     # First get participant records for this user
@@ -108,6 +113,23 @@ async def get_library(
             status=r.status or "draft",
             participant_count=0,
             is_owner=False,
+        ))
+
+    # Add v2 Aimee memories
+    for memory in memories:
+        name = memory.title or "Untitled reflection"
+        if len(name) > 60:
+            name = f"{name[:60]}..."
+        created_at = memory.created_at or memory.occurred_at
+        items.append(LibraryItemResponse(
+            type="memory",
+            id=memory.id,
+            name=name,
+            created_at=created_at.isoformat() if created_at else "",
+            status="completed",
+            participant_count=0,
+            is_owner=False,
+            subtitle="Aimee reflection",
         ))
 
     # Add conversation spaces (need participant count per space)

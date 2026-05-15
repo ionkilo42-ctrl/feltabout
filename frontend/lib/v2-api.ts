@@ -6,6 +6,7 @@
  */
 
 import { apiUrl } from './api'
+import { useAuthStore } from '@/store/sessionStore'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -167,11 +168,13 @@ async function apiRequest<T>(
   options?: RequestInit
 ): Promise<T> {
   const url = apiUrl(path)
+  const token = useAuthStore.getState().token
   
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   })

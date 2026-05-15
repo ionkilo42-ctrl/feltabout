@@ -8,9 +8,7 @@ They require authentication and are disabled in production unless ALLOW_V2=true.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.schemas.v2.aimee import (
     ExtractionRequest,
     ExtractionResponse,
@@ -30,18 +28,9 @@ async def extract(
     request: ExtractionRequest,
     current_user: dict = Depends(require_user),
 ):
-    """Check environment access."""
+    """Extract emotional meaning without saving."""
     check_v2_access()
-    user_id = current_user["sub"]
-    """
-    Extract emotional meaning from text.
-    
-    This endpoint PROPOSES only - it does NOT save anything.
-    User must review and confirm via /v2/aimee/confirm.
-    
-    Safety check runs before extraction.
-    Crisis/unsafe input returns safe response (no extraction).
-    """
+    _user_id = current_user["sub"]
     return await extract_emotions(request)
 
 
@@ -49,17 +38,10 @@ async def extract(
 async def confirm(
     request: ConfirmRequest,
     current_user: dict = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Check environment access."""
+    """Save user-confirmed extraction to the emotional graph."""
     check_v2_access()
     user_id = current_user["sub"]
-    """
-    Save user-confirmed extraction to emotional graph.
-    
-    This is the ONLY endpoint that saves emotional data.
-    Only user-confirmed or user-edited data gets saved.
-    """
     try:
         return await confirm_extraction(request, user_id)
     except ValueError as e:
@@ -73,15 +55,7 @@ async def chat(
     request: ChatRequest,
     current_user: dict = Depends(require_user),
 ):
-    """Check environment access."""
+    """Chat with Aimee using the signed-in user context."""
     check_v2_access()
-    user_id = current_user["sub"]
-    """
-    Free-form conversational chat with Aimee.
-    
-    This is Aimee's guide voice - warm, listening, asking questions.
-    Safety check runs first. Crisis input returns crisis response.
-    
-    Returns conversational reply, not structured extraction.
-    """
+    _user_id = current_user["sub"]
     return await chat_with_aimee(request)

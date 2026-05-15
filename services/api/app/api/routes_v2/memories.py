@@ -31,10 +31,9 @@ async def create_memory(
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check environment access."""
+    """Create a memory for the signed-in user."""
     check_v2_access()
     user_id = current_user["sub"]
-    """Create a memory with nested feelings, needs, entities, and topics."""
     memory = await MemoryService.create_with_nested(db, user_id, data)
     
     # Collect unique needs/entities/topics by ID
@@ -77,10 +76,9 @@ async def list_memories(
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check environment access."""
+    """List all memories for the signed-in user."""
     check_v2_access()
     user_id = current_user["sub"]
-    """List all memories for the current user."""
     memories = await MemoryService.list_by_user(db, user_id)
     return [MemoryResponse.model_validate(m) for m in memories]
 
@@ -91,10 +89,9 @@ async def get_memory(
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check environment access."""
+    """Get one memory for the signed-in user."""
     check_v2_access()
     user_id = current_user["sub"]
-    """Get a specific memory with all relationships."""
     memory = await MemoryService.get_by_id(db, memory_id, user_id)
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
@@ -139,10 +136,9 @@ async def delete_memory(
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check environment access."""
+    """Delete one memory for the signed-in user."""
     check_v2_access()
     user_id = current_user["sub"]
-    """Delete a memory and its associated feelings."""
     memory = await MemoryService.get_by_id(db, memory_id, user_id)
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")

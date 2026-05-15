@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/sessionStore'
 import styles from './LibraryPage.module.css'
 
 interface LibraryItem {
-  type: 'reflection' | 'conversation'
+  type: 'reflection' | 'memory' | 'conversation'
   id: string
   name: string
   created_at: string
@@ -61,6 +61,9 @@ export default function LibraryPage() {
       })
   }, [token])
 
+  const isReflectionLike = (item: LibraryItem) =>
+    item.type === 'reflection' || item.type === 'memory'
+
   // Fetch patterns (separate endpoint, shows only when ≥3 reflections)
   useEffect(() => {
     if (!token) return
@@ -78,10 +81,14 @@ export default function LibraryPage() {
       .catch(() => setPatternsLoading(false))
   }, [token])
 
-  const filtered = filter === 'all' ? items : items.filter(i => i.type === filter)
+  const filtered = filter === 'all'
+    ? items
+    : filter === 'reflection'
+      ? items.filter(isReflectionLike)
+      : items.filter(i => i.type === filter)
 
   const statusLabel = (type: string, status: string) => {
-    if (type === 'reflection') {
+    if (type === 'reflection' || type === 'memory') {
       const map: Record<string, string> = { draft: 'Draft', completed: 'Complete', archived: 'Archived' }
       return map[status] || status
     }
@@ -128,7 +135,9 @@ export default function LibraryPage() {
               {f === 'all' ? 'All' : f === 'reflection' ? 'Reflections' : 'Conversations'}
               {f !== 'all' && (
                 <span className={styles.filterCount}>
-                  {items.filter(i => i.type === f).length}
+                  {f === 'reflection'
+                    ? items.filter(isReflectionLike).length
+                    : items.filter(i => i.type === f).length}
                 </span>
               )}
             </button>
@@ -208,14 +217,23 @@ export default function LibraryPage() {
             {filtered.map(item => (
               <Link
                 key={item.id}
-                href={item.type === 'reflection' ? `/reflections/${item.id}` : `/session`}
+                href={
+                  item.type === 'memory'
+                    ? `/memories/${item.id}`
+                    : item.type === 'reflection'
+                      ? `/reflections/${item.id}`
+                      : `/session`
+                }
                 className={styles.card}
               >
                 <div className={styles.cardIcon}>
-                  {item.type === 'reflection' ? '📝' : '💬'}
+                  {item.type === 'conversation' ? '💬' : '📝'}
                 </div>
                 <div className={styles.cardBody}>
                   <div className={styles.cardName}>{item.name}</div>
+                  {item.subtitle && (
+                    <div className={styles.cardSubtitle}>{item.subtitle}</div>
+                  )}
                   <div className={styles.cardMeta}>
                     <span className={styles.cardDate}>{formatDate(item.created_at)}</span>
                     {item.type === 'conversation' && (
