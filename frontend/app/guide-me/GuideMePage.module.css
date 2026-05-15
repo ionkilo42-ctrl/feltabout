@@ -1,0 +1,756 @@
+/* ═══════════════════════════════════════════════════════════
+   GUIDE ME PAGE - Structured Stage-Based Reflection
+   ═══════════════════════════════════════════════════════════ */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: 0.75rem clamp(1rem, 5vw, 1.5rem);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.backLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.backArrow {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+}
+
+.headerLogo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+.titleGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.guideName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.guideStatus {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.headerSpacer {
+  width: 60px;
+}
+
+/* ── Stage Progress ────────────────────────────────────────── */
+.stageProgress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.stageLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 80px;
+}
+
+.stageBar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-deep);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.stageFill {
+  height: 100%;
+  background: var(--gradient-core);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── Session Container ──────────────────────────────────────── */
+.sessionContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+/* ── Messages ──────────────────────────────────────────────── */
+.messagesContainer {
+  flex: 1;
+  padding: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.message.user {
+  flex-direction: row-reverse;
+}
+
+.msgAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.msgBubble {
+  max-width: 80%;
+  padding: 0.875rem 1.125rem;
+  border-radius: 18px;
+  line-height: 1.5;
+}
+
+.message.aimee .msgBubble {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.message.user .msgBubble {
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.msgText {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.message.user .msgText {
+  color: white;
+}
+
+/* ── Loading dots ──────────────────────────────────────────── */
+.loadingDots {
+  display: flex;
+  gap: 3px;
+}
+
+.loadingDots span {
+  animation: dot-bounce 1.2s ease-in-out infinite;
+  font-size: 1.5rem;
+  line-height: 0;
+}
+
+.loadingDots span:nth-child(1) { animation-delay: 0s; }
+.loadingDots span:nth-child(2) { animation-delay: 0.2s; }
+.loadingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── Input ─────────────────────────────────────────────────── */
+.inputSection {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 0 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--card);
+  position: sticky;
+  bottom: 0;
+}
+
+.chatInput {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--bg-soft);
+  font-size: 0.9rem;
+  color: var(--text);
+  resize: none;
+  min-height: 48px;
+  max-height: 150px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chatInput:focus {
+  border-color: var(--accent);
+  background: var(--card);
+}
+
+.chatInput::placeholder {
+  color: var(--text-muted);
+}
+
+.sendBtn {
+  min-width: 56px;
+  height: 48px;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: 24px;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.sendBtn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Bottom Actions ─────────────────────────────────────────── */
+.bottomActions {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+
+.restartBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.restartBtn:hover {
+  color: var(--text);
+}
+
+/* ── Loading State ──────────────────────────────────────────── */
+.loadingContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 3rem;
+  text-align: center;
+}
+
+.loadingContainer .loadingDots span {
+  display: inline-block;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+  font-size: 2rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.loadingContainer p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Error ──────────────────────────────────────────────────── */
+.errorBanner {
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  color: #dc2626;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.errorText {
+  color: #dc2626;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ── Card Container ─────────────────────────────────────────── */
+.cardContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+/* ── Reflection Card Panel ────────────────────────────────────── */
+.cardPanel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  overflow: hidden;
+  margin: 1.5rem 0 2rem;
+  box-shadow: var(--shadow-lg);
+  animation: cardIn 0.4s ease;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(to bottom, var(--bg-soft), var(--card));
+}
+
+.cardHeaderLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.editCardBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.875rem;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editCardBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cardBody {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cardTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sectionLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-quiet);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.cardText {
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Feelings */
+.feelingsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feelingItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.feelingName {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 90px;
+  text-transform: capitalize;
+}
+
+.intensityTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-deep);
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.intensityFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.intensityNum {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* About links */
+.aboutList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.aboutItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.aboutType {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* Needs */
+.needsTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.needTag {
+  display: inline-flex;
+  padding: 0.35rem 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* Suggested words */
+.suggestedWord {
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.suggestedWord:last-child {
+  border-bottom: none;
+}
+
+/* ── Card Actions ───────────────────────────────────────────── */
+.cardActions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.skipBtn {
+  flex: 1;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skipBtn:hover:not(:disabled) {
+  background: var(--bg-soft);
+}
+
+.saveCardBtn {
+  flex: 2;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.3);
+  transition: all 0.2s;
+}
+
+.saveCardBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(51, 214, 200, 0.4);
+}
+
+.saveCardBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Edit Mode ──────────────────────────────────────────────── */
+.cardField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.fieldLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-quiet);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.fieldInput {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  font-size: 0.875rem;
+  color: var(--text);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.fieldInput:focus {
+  border-color: var(--accent);
+}
+
+.fieldTextarea {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  font-size: 0.875rem;
+  color: var(--text);
+  width: 100%;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.fieldTextarea:focus {
+  border-color: var(--accent);
+}
+
+.feelingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.intensityBadge {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-soft);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.aboutRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
+}
+
+.cancelBtn {
+  flex: 1;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelBtn:hover {
+  background: var(--bg-soft);
+}
+
+.saveChangesBtn {
+  flex: 2;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.3);
+  transition: all 0.2s;
+}
+
+.saveChangesBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(51, 214, 200, 0.4);
+}
+
+/* ── Saved State ────────────────────────────────────────────── */
+.savedContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.savedCard {
+  text-align: center;
+  max-width: 360px;
+}
+
+.savedIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.savedCard h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.savedCard p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
+.savedActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.primaryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(51, 214, 200, 0.3);
+  transition: all 0.2s;
+}
+
+.primaryBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.ghostBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ghostBtn:hover {
+  background: var(--bg-soft);
+}

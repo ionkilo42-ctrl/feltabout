@@ -62,6 +62,28 @@ curl http://localhost:8000/health
 curl http://localhost:3000
 ```
 
+### Public sharing with ngrok
+
+To launch the local Docker stack and expose Feltabout through one public ngrok URL:
+
+```bash
+python3 scripts/feltabout_ngrok.py up
+```
+
+Check status:
+
+```bash
+python3 scripts/feltabout_ngrok.py status
+```
+
+Stop only the tunnel:
+
+```bash
+python3 scripts/feltabout_ngrok.py down
+```
+
+See [`docs/NGROK_PROTOCOL.md`](docs/NGROK_PROTOCOL.md) for the full runbook and caveats.
+
 ### Common commands
 
 ```bash

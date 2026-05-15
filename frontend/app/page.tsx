@@ -27,6 +27,7 @@ const STEPS = [
 
 const NAV_LINKS = [
   { href: '/session', label: 'Prepare' },
+  { href: '/guide-me', label: 'Guide Me' },
   { href: '/library', label: 'Library' },
   { href: '/aimee', label: 'Chat with Aimee' },
 ]
@@ -103,10 +104,10 @@ export default function HomePage() {
           </p>
           <div className={styles.ctaGroup}>
             <Link href="/session" className={styles.primaryCta}>
-              Prepare for a conversation
+              Quick prepare
             </Link>
-            <Link href="/start" className={styles.secondaryCta}>
-              Start shared session
+            <Link href="/guide-me" className={styles.secondaryCta}>
+              Guide Me — structured reflection
             </Link>
           </div>
         </div>

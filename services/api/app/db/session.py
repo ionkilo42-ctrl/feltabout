@@ -49,6 +49,8 @@ async def init_db():
         Feeling, Need, Entity, Topic, Memory, Guide, PublicEntityAggregate,
         feeling_needs, feeling_entities, feeling_topics
     )
+    # Import GuideSession to register it with Base.metadata
+    from app.models.guide_session import GuideSession  # noqa: F401
 
     USE_AUTH = os.environ.get("USE_AUTH", "false").lower() == "false"
 
