@@ -417,6 +417,16 @@ class GuideService:
                 )
                 stage_advanced = True
 
+        elif current_stage == GuideStage.MEMORY_DISCOVERY.value:
+            # Move forward once the user provides a meaningful reflection.
+            if len(user_input.strip()) > 3:
+                stage_advanced = True
+
+        elif current_stage == GuideStage.MEANING_DISCOVERY.value:
+            # Move forward once the user articulates a meaning/story.
+            if len(user_input.strip()) > 3:
+                stage_advanced = True
+
         elif current_stage == GuideStage.NEED_DISCOVERY.value:
             # Extract needs from input — simple keyword matching for common needs
             need_keywords = {
@@ -441,6 +451,38 @@ class GuideService:
                     break
             # Also advance if user said something meaningful
             if len(user_input.strip()) > 10:
+                stage_advanced = True
+
+        elif current_stage == GuideStage.PURPOSE_OF_FEELING.value:
+            # Advance once the user identifies what the feeling points toward.
+            if len(user_input.strip()) > 3:
+                stage_advanced = True
+
+        elif current_stage == GuideStage.CONSTRUCTIVE_PATH.value:
+            # Advance once they provide a concrete next step.
+            if len(user_input.strip()) > 3:
+                stage_advanced = True
+
+        elif current_stage == GuideStage.REFLECTION_REVIEW.value:
+            # Allow explicit approval to transition to save_or_signup.
+            text_lower = user_input.lower().strip()
+            approval_words = [
+                "yes",
+                "yeah",
+                "yep",
+                "looks good",
+                "look good",
+                "good",
+                "approved",
+                "approve",
+                "that looks right",
+                "feels right",
+                "correct",
+                "sure",
+                "ok",
+                "okay",
+            ]
+            if any(word in text_lower for word in approval_words):
                 stage_advanced = True
 
         # ── Build Aimee prompt ────────────────────────────────────────────────

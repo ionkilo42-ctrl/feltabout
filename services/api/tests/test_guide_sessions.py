@@ -26,7 +26,12 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
-from app.db.session import init_db
+from sqlalchemy import delete
+
+from app.db.session import init_db, async_session_factory
+from app.models.guide_session import GuideSession
+from app.models.reflection import Reflection, ReflectionOutput, ReflectionFeedback, SafetyEvent
+from app.schemas.guide_session import ReflectionCard
 
 
 # ─── Test client fixture ───────────────────────────────────────────────────────
@@ -34,6 +39,14 @@ from app.db.session import init_db
 @pytest.fixture
 async def client():
     await init_db()
+    # Keep product behavior intact while enforcing per-test isolation.
+    async with async_session_factory() as session:
+        await session.execute(delete(GuideSession))
+        await session.execute(delete(ReflectionOutput))
+        await session.execute(delete(ReflectionFeedback))
+        await session.execute(delete(SafetyEvent))
+        await session.execute(delete(Reflection))
+        await session.commit()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
@@ -307,8 +320,8 @@ async def test_crisis_prevents_meaningful_card(client):
     # Card generation still runs but card is empty/minimal
     resp = await client.post(f"/guide-sessions/{sid}/generate-card")
     assert resp.status_code == 200
-    card = resp.json()["card"]
-    assert card["title"] != ""  # Fallback title still generated
+    card = ReflectionCard.model_validate(resp.json()["card"])
+    assert card.title != ""  # Fallback title still generated
 
 
 # ─── Philosophy: causal_claim defaults to false ───────────────────────────────
@@ -333,7 +346,7 @@ async def test_causal_claim_not_in_generated_card(client):
 
     resp = await client.post(f"/guide-sessions/{sid}/generate-card")
     assert resp.status_code == 200
-    card = resp.json()["card"]
+    card = ReflectionCard.model_validate(resp.json()["card"])
 
     # causal_claim is not a valid field in ReflectionCard schema
     # (it would cause a pydantic validation error if we tried to add it)
@@ -341,7 +354,7 @@ async def test_causal_claim_not_in_generated_card(client):
     assert hasattr(card, "feelings")
     assert hasattr(card, "purpose_of_feeling")  # not causal_claim
     assert hasattr(card, "constructive_path")
-    assert "causal_claim" not in card
+    assert "causal_claim" not in card.model_dump()
 
 
 # ─── Philosophy: Abandoned session saves collected feelings ─────────────────
@@ -355,12 +368,17 @@ async def test_save_abandoned_session_preserves_feelings(client):
     # Advance to feeling_identification and collect a feeling
     await send_message(client, sid, "Having issues with my team lead.")
     await send_message(client, sid, "They micromanage everything I do.")
+    await send_message(client, sid, "I feel frustrated")
 
     # Get session state before save
     resp_before = await client.get(f"/guide-sessions/{sid}")
     session_before = resp_before.json()
     assert len(session_before["collected_feelings"]) > 0
     assert session_before["collected_feelings"][0]["name"] == "frustrated"
+
+    # Generate card before save endpoint (save requires existing reflection_card)
+    card_resp = await client.post(f"/guide-sessions/{sid}/generate-card")
+    assert card_resp.status_code == 200
 
     # Skip saving (abandon)
     resp = await client.post(
@@ -442,7 +460,9 @@ async def test_guide_me_reflection_appears_in_library(client):
     # Check library
     resp = await client.get("/library")
     assert resp.status_code == 200
-    library = resp.json()
+    library_payload = resp.json()
+    assert isinstance(library_payload, dict)
+    library = library_payload.get("items", [])
     assert isinstance(library, list)
     # At least the one we just saved should be there
     ids = [r["id"] for r in library]

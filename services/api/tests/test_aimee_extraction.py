@@ -16,7 +16,10 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
-from app.db.session import init_db
+from sqlalchemy import select
+
+from app.db.session import init_db, async_session_factory
+from app.models.user import User
 from app.services import ai_router as ai_router_module
 
 
@@ -27,6 +30,13 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture(autouse=True)
+def force_local_ai(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "local")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
 
 
 # ─── Extraction Endpoint Tests ────────────────────────────────────────────────
@@ -236,6 +246,7 @@ async def test_chat_does_not_reply_with_hurt_for_negated_sadness(client, monkeyp
 @pytest.mark.asyncio
 async def test_v2_chat_uses_shared_minimax_router_not_openai_sdk(client, monkeypatch):
     """The v2 chat endpoint should use the shared MiniMax router path, not the OpenAI SDK."""
+    monkeypatch.setenv("AI_PROVIDER", "minimax")
     monkeypatch.setenv("MINIMAX_API_KEY", "test-minimax-key")
     monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
     monkeypatch.setenv("MINIMAX_MODEL", "MiniMax-M2.7")
@@ -257,6 +268,7 @@ async def test_v2_chat_uses_shared_minimax_router_not_openai_sdk(client, monkeyp
 @pytest.mark.asyncio
 async def test_v2_extract_uses_shared_minimax_router_not_openai_sdk(client, monkeypatch):
     """The v2 extract endpoint should use the shared MiniMax router path, not the OpenAI SDK."""
+    monkeypatch.setenv("AI_PROVIDER", "minimax")
     monkeypatch.setenv("MINIMAX_API_KEY", "test-minimax-key")
     monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
     monkeypatch.setenv("MINIMAX_MODEL", "MiniMax-M2.7")

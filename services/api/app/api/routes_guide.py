@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routes_auth import require_user
 from app.db.session import get_db
 from app.models.guide_session import GuideSession
+from app.schemas.reflection import CreateReflectionRequest
 from app.schemas.guide_session import (
     GuideSessionResponse,
     AimeeReplyResponse,
@@ -410,16 +411,18 @@ async def save_guide_session(
     reflection = await ReflectionService.create(
         db=db,
         user_id=user["sub"],
-        data={
-            "title": card_dict.get("title", "Guide Me reflection"),
-            "situation": first_expression,
-            "feelings": ", ".join(f['name'] for f in card_dict.get("feelings", [])),
-            "interpretation": card_dict.get("purpose_of_feeling", ""),
-            "needs": ", ".join(card_dict.get("needs", [])),
-            "fears": "",
-            "desired_outcome": "",
-            "message_draft": simple_opener,
-        },
+        data=CreateReflectionRequest(
+            title=card_dict.get("title", "Guide Me reflection"),
+            situation=first_expression,
+            feelings=", ".join(
+                f["name"] for f in card_dict.get("feelings", [])
+            ),
+            interpretation=card_dict.get("purpose_of_feeling", ""),
+            needs=", ".join(card_dict.get("needs", [])),
+            fears="",
+            desired_outcome="",
+            message_draft=simple_opener,
+        ),
     )
 
     # Save output

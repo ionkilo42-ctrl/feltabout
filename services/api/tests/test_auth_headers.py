@@ -14,9 +14,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
-from app.db.session import init_db
+from app.db.session import init_db, async_session_factory
 from app.main import app
+from app.models.user import User
 from app.services.auth_service import create_conversation_token
 
 
@@ -153,6 +155,15 @@ async def test_reflections_use_authenticated_bearer_user(client):
 async def test_admin_safety_events_uses_bearer_auth_and_serializes_events(client):
     auth = await register_user(client, email="admin-safety@example.com")
     headers = {"Authorization": f"Bearer {auth['token']}"}
+
+    # This route explicitly requires an admin-backed bearer user.
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.id == auth["user"]["id"])
+        )
+        user = result.scalar_one()
+        user.is_admin = True
+        await session.commit()
 
     create_response = await client.post(
         "/reflections",
