@@ -159,3 +159,7 @@ class ChatResponse(BaseModel):
     
     reply: str = Field(..., description="Aimee's conversational reply")
     safety_status: Literal["safe", "flagged"] = Field(default="safe", description="Safety check result")
+    should_offer_review: bool = Field(
+        default=False,
+        description="True when the user appears done and the UI should offer review/save",
+    )

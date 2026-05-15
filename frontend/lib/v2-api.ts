@@ -208,6 +208,7 @@ export async function confirmAimeeExtraction(
 export interface ChatResponse {
   reply: string
   safety_status: 'safe' | 'flagged'
+  should_offer_review: boolean
 }
 
 export async function chatWithAimee(

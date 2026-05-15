@@ -191,6 +191,41 @@ async def test_chat_name_only_input_stays_grounded(client):
 
 
 @pytest.mark.asyncio
+async def test_chat_keeps_normal_turns_in_conversation_mode(client, monkeypatch):
+    """Regular reflection turns should stay conversational and avoid review mode."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    payload = {"message": "My new boss called my work junk and I'm angry about it."}
+
+    resp = await client.post("/v2/aimee/chat", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    assert data["should_offer_review"] is False
+    assert data["reply"].count("?") <= 1
+    assert "saved" not in data["reply"].lower()
+
+
+@pytest.mark.asyncio
+async def test_chat_marks_done_or_save_turns_for_review(client, monkeypatch):
+    """When the user says they are done or wants to save, chat should switch to review mode."""
+    monkeypatch.setenv("MINIMAX_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    payload = {"message": "I think that's it. Can we save this?"}
+
+    resp = await client.post("/v2/aimee/chat", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["safety_status"] == "safe"
+    assert data["should_offer_review"] is True
+    assert "save" in data["reply"].lower() or "captured" in data["reply"].lower()
+
+
+@pytest.mark.asyncio
 async def test_chat_does_not_treat_im_just_as_a_name_intro(client, monkeypatch):
     """Conversational text starting with I'm should not be treated as a name-only intro."""
     monkeypatch.setenv("MINIMAX_API_KEY", "")

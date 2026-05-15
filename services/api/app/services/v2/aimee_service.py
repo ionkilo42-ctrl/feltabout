@@ -32,6 +32,15 @@ LOW_SIGNAL_PATTERNS = [
     re.compile(r"^\s*(my name is|name'?s)\s+[a-z][a-z '-]{0,40}[.!?\s]*$", re.IGNORECASE),
 ]
 
+REVIEW_REQUEST_PATTERNS = [
+    re.compile(r"\b(can we|could you|please)?\s*save (this|that|it)?\b", re.IGNORECASE),
+    re.compile(r"\b(i('| a)?m|i am)\s+(done|finished)\b", re.IGNORECASE),
+    re.compile(r"\bthat'?s (it|enough|all)\b", re.IGNORECASE),
+    re.compile(r"\bready to save\b", re.IGNORECASE),
+    re.compile(r"\blet'?s save\b", re.IGNORECASE),
+    re.compile(r"\bwrap (this )?up\b", re.IGNORECASE),
+]
+
 
 def _extract_intro_name(text: str) -> Optional[str]:
     """Return a first-name-like token from a simple introduction."""
@@ -85,6 +94,49 @@ def _build_low_signal_chat_reply(text: str) -> str:
         return f"Hi {name}. What would you like help thinking through today?"
 
     return "Hi. What would you like help thinking through today?"
+
+
+def _wants_review_or_save(text: str) -> bool:
+    """Detect when the user signals they want to review or save."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+
+    return any(pattern.search(cleaned) for pattern in REVIEW_REQUEST_PATTERNS)
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"\b[\w'-]+\b", text))
+
+
+def _build_chat_system_prompt(message: str, should_offer_review: bool) -> str:
+    """Build the Aimee prompt with pacing guidance tied to the user's message size."""
+    user_words = max(_word_count(message), 1)
+    lower_bound = max(6, round(user_words * 0.6))
+    upper_bound = max(lower_bound + 2, round(user_words * 1.4))
+    review_mode = "yes" if should_offer_review else "no"
+
+    return f"""You are Aimee, a calm reflection guide for Feltabout.
+
+You help people think clearly about difficult conversations.
+You are not a therapist, not a clinician, and not an advice machine.
+
+Voice and pacing:
+- Keep the reply conversational, human, and simple.
+- Match the user's conversational size. Target roughly {lower_bound}-{upper_bound} words for this turn unless safety requires otherwise.
+- Start with a brief acknowledgment when the message carries emotion.
+- Follow with one focused reflection.
+- Ask at most one gentle question.
+- No lists, tables, JSON, headings, or structured analysis in normal conversation.
+- Do not dump big summaries, emotional inventories, or reviews unless the user explicitly wants review/save.
+- Do not use therapy language, clinical framing, or dependency language.
+- Stay grounded in the user's actual words and specifics.
+
+Special handling:
+- If the person only says hello or shares their name, greet them briefly and ask what they want help thinking through.
+- If the person signals they are done or want to save: review_mode={review_mode}. Briefly acknowledge that, avoid another exploratory question, and say you can review what seems worth saving.
+
+Remember: Feltabout is for reflection and conversation preparation, not therapy."""
 
 
 # ─── Safety Check ────────────────────────────────────────────────────────────────
@@ -353,35 +405,20 @@ async def chat_with_aimee(request: ChatRequest) -> ChatResponse:
         return ChatResponse(
             reply=crisis_message,
             safety_status="flagged",
+            should_offer_review=False,
         )
 
     if _is_low_signal_input(request.message):
         return ChatResponse(
             reply=_build_low_signal_chat_reply(request.message),
             safety_status="safe",
+            should_offer_review=False,
         )
+
+    should_offer_review = _wants_review_or_save(request.message)
     
     # Step 2: Build conversation context with optional participant awareness
-    system_prompt = """You are Aimee, a calm and thoughtful reflection guide for Feltabout.
-
-You help people understand their feelings through gentle conversation. 
-You listen carefully, acknowledge what's shared, and ask one thoughtful question at a time.
-You do not lecture, diagnose, or rush to solutions.
-
-Your style:
-- Calm and unhurried
-- Warm but not effusive
-- Curious about what matters to the person
-- Ask one question at a time when appropriate
-- Non-judgmental about any emotion or situation
-- Grounded in the user's actual words
-
-Rules:
-- Do not infer emotions, needs, or conflict from a greeting or simple introduction.
-- If the person only says hello or shares their name, greet them briefly and ask what they want help thinking through.
-- Do not use therapy language or generic filler like "Thank you for sharing that with me."
-
-Remember: you are a guide for reflection, not a therapist or advisor."""
+    system_prompt = _build_chat_system_prompt(request.message, should_offer_review)
 
     # Build full context with participant information if available
     full_context = ""
@@ -402,14 +439,15 @@ Remember: you are a guide for reflection, not a therapist or advisor."""
     
     # Step 3: Try AI chat through the shared provider router.
     if provider_has_key():
-        return await _chat_with_router(messages, request.message)
+        return await _chat_with_router(messages, request.message, should_offer_review)
     else:
-        return _chat_with_mock(request.message)
+        return _chat_with_mock(request.message, should_offer_review)
 
 
 async def _chat_with_router(
     messages: list[dict],
     original_message: str,
+    should_offer_review: bool,
 ) -> ChatResponse:
     """Chat using the shared AI router."""
     try:
@@ -418,36 +456,66 @@ async def _chat_with_router(
             messages,
             max_tokens=1000,
         )
-        return ChatResponse(reply=reply.strip(), safety_status="safe")
+        return ChatResponse(
+            reply=reply.strip(),
+            safety_status="safe",
+            should_offer_review=should_offer_review,
+        )
     except Exception as e:
         print(f"AI CHAT ERROR: {type(e).__name__}: {e}")
-        return _chat_with_mock(original_message)
+        return _chat_with_mock(original_message, should_offer_review)
 
 
-def _chat_with_mock(message: str) -> ChatResponse:
+def _chat_with_mock(message: str, should_offer_review: bool) -> ChatResponse:
     """Mock chat for testing and when no API key is available."""
     text_lower = message.lower()
 
     if _is_low_signal_input(message):
-        return ChatResponse(reply=_build_low_signal_chat_reply(message), safety_status="safe")
+        return ChatResponse(
+            reply=_build_low_signal_chat_reply(message),
+            safety_status="safe",
+            should_offer_review=False,
+        )
+
+    if should_offer_review:
+        return ChatResponse(
+            reply="We can do that. I'll keep this simple and help you review what seems worth saving before we save it.",
+            safety_status="safe",
+            should_offer_review=True,
+        )
     
-    # Warm, reflective responses
     if _has_unnegated_keyword(message, ["angry", "frustrated", "mad", "annoyed"]):
-        reply = "That frustration sounds heavy. What's underneath it, if you feel like saying more?"
+        reply = (
+            "That sounds painful.\n\n"
+            "You care about what happened here, and the anger seems tied to that. "
+            "What hit hardest for you?"
+        )
     elif _has_unnegated_keyword(message, ["sad", "hurt", "disappointed", "lonely"]):
-        reply = "I hear that sense of hurt. Take your time — what's closest to how you're feeling right now?"
+        reply = (
+            "That seems significant.\n\n"
+            "There is some hurt in this, not just the event itself. "
+            "What feels most exposed right now?"
+        )
     elif _has_unnegated_keyword(message, ["happy", "joy", "excited", "grateful"]):
-        reply = "That's really lovely to hear. What made this moment feel especially good?"
+        reply = "That sounds good.\n\nWhat feels most meaningful about it?"
     elif _has_unnegated_keyword(message, ["scared", "afraid", "worried", "anxious"]):
-        reply = "Anxiety can feel like a lot. What's the part that's weighing on you most?"
+        reply = (
+            "That sounds like a lot to hold.\n\n"
+            "There is something uncertain here that's pressing on you. "
+            "What part feels most risky?"
+        )
     elif _has_unnegated_keyword(message, ["disgusted", "gross", "ew", "ugh"]):
-        reply = "That reaction makes sense. What was it about the situation that felt off?"
+        reply = "That reaction makes sense.\n\nWhat felt most off about it?"
     elif any(w in text_lower for w in ["help", "advice", "should i"]):
-        reply = "I'm not here to give advice, but I'm happy to listen. What's going on?"
+        reply = "I can help you think it through.\n\nWhat happened?"
     else:
-        reply = "Tell me a little more about what's going on."
+        reply = "Tell me a little more.\n\nWhat feels most important in this?"
     
-    return ChatResponse(reply=reply, safety_status="safe")
+    return ChatResponse(
+        reply=reply,
+        safety_status="safe",
+        should_offer_review=False,
+    )
 
 
 # ─── Confirmation (Save to Emotional Graph) ──────────────────────────────────

@@ -17,6 +17,20 @@ import { speak, stopSpeaking, isTtsSupported } from '../../lib/voice/tts'
 import { isSttSupported, startListening, stopListening } from '../../lib/voice/stt'
 import styles from './AimeePage.module.css'
 
+function buildReviewPlayback(extraction: ExtractionData): string {
+  const parts = [extraction.feeling]
+
+  if (extraction.entity) {
+    parts.push(`about ${extraction.entity}`)
+  } else if (extraction.topic) {
+    parts.push(`around ${extraction.topic}`)
+  }
+
+  const needsText = extraction.needs[0] ? ` with a need for ${extraction.needs[0]}` : ''
+
+  return `Before I save anything, here is what I think I am holding onto: ${parts.join(' ')}${needsText}. Review it below and save it only if it looks right.`
+}
+
 // Convert API extraction to ExtractionData format
 function apiToExtractionData(api: ExtractionResponse): ExtractionData {
   const feeling = api.feelings[0]
@@ -61,6 +75,9 @@ export default function AimeePage() {
   const hasHydratedScrollRef = useRef(false)
   const currentRequestIdRef = useRef(0)
   const stopListeningRef = useRef<(() => void) | null>(null)
+  const latestExtractionRef = useRef<ExtractionData | null>(null)
+  const latestSourceTextRef = useRef('')
+  const nextMessageIdRef = useRef(2)
   
   // Chat state - initialize with empty time for SSR hydration safety
   const [messages, setMessages] = useState<Array<{
@@ -99,8 +116,6 @@ export default function AimeePage() {
   const [sourceText, setSourceText] = useState('')
   
   // Message counter
-  const [msgId, setMsgId] = useState(2)
-  
   // TTS state
   const [ttsEnabled, setTtsEnabled] = useState(false)
   const [ttsSupported, setTtsSupported] = useState(false)
@@ -161,17 +176,19 @@ export default function AimeePage() {
   }, [loading])
   
   const addMessage = useCallback((speaker: 'aimee' | 'user', text: string) => {
+    const id = nextMessageIdRef.current
+    nextMessageIdRef.current += 1
+
     setMessages(prev => [
       ...prev,
       {
-        id: msgId,
+        id,
         speaker,
         text,
         time: getTimeString(),
       },
     ])
-    setMsgId(prev => prev + 1)
-  }, [msgId, getTimeString])
+  }, [getTimeString])
   
   const handleSubmit = async () => {
     if (!inputText.trim() || loading || saving) return
@@ -180,20 +197,17 @@ export default function AimeePage() {
     const requestId = currentRequestIdRef.current + 1
     currentRequestIdRef.current = requestId
     setInputText('')
-    setSourceText(text)
-    
     // Add user message
     addMessage('user', text)
     
     // Reset states
     setLoading(true)
     setError(null)
-    setExtraction(null)
     setSafetyFlagged(false)
     setSafetyMessage('')
     setSaved(false)
     setSavedMemoryId(null)
-    setShowCard(true)
+    setShowCard(false)
     setCardMinimized(false)
     
     try {
@@ -220,7 +234,6 @@ export default function AimeePage() {
       if (chatResponse.safety_status === 'flagged') {
         setSafetyFlagged(true)
         setSafetyMessage(chatResponse.reply)
-        setExtraction(null)
         setShowCard(false)
       } else {
         // 2. Second: quietly try extraction so the memory card can still work
@@ -231,22 +244,48 @@ export default function AimeePage() {
           if (extractionResponse.safety_status === 'flagged') {
             setSafetyFlagged(true)
             setSafetyMessage(extractionResponse.suggested_response)
-            setExtraction(null)
             setShowCard(false)
           } else if (extractionResponse.feelings.length > 0) {
             const extractionData = apiToExtractionData(extractionResponse)
             setExtraction(extractionData)
+            latestExtractionRef.current = extractionData
+            latestSourceTextRef.current = text
+
+            if (chatResponse.should_offer_review) {
+              setSourceText(text)
+              setShowCard(true)
+              setCardMinimized(false)
+              addMessage('aimee', buildReviewPlayback(extractionData))
+            } else {
+              setShowCard(false)
+            }
+          } else if (chatResponse.should_offer_review && latestExtractionRef.current) {
+            setExtraction(latestExtractionRef.current)
+            setSourceText(latestSourceTextRef.current)
             setShowCard(true)
-            setCardMinimized(true)
+            setCardMinimized(false)
+            addMessage('aimee', buildReviewPlayback(latestExtractionRef.current))
+          } else if (chatResponse.should_offer_review) {
+            setShowCard(false)
+            addMessage('aimee', "I can save it once there's a clearer moment to hold onto. Give me one more specific piece if you want.")
           } else {
-            setExtraction(null)
             setShowCard(false)
           }
         } catch (extractErr) {
           if (currentRequestIdRef.current !== requestId) return
           console.warn('Extraction failed, but chat succeeded:', extractErr)
-          setExtraction(null)
-          setShowCard(false)
+          if (chatResponse.should_offer_review && latestExtractionRef.current) {
+            setExtraction(latestExtractionRef.current)
+            setSourceText(latestSourceTextRef.current)
+            setShowCard(true)
+            setCardMinimized(false)
+            addMessage('aimee', buildReviewPlayback(latestExtractionRef.current))
+          } else if (chatResponse.should_offer_review) {
+            setShowCard(false)
+            addMessage('aimee', "I can save it once there's a clearer moment to hold onto. Give me one more specific piece if you want.")
+          } else {
+            setShowCard(false)
+          }
         }
       }
     } catch (err) {
@@ -342,6 +381,8 @@ export default function AimeePage() {
   
   const handleStartNew = () => {
     setExtraction(null)
+    latestExtractionRef.current = null
+    latestSourceTextRef.current = ''
     setSaved(false)
     setSavedMemoryId(null)
     setSafetyFlagged(false)
