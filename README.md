@@ -9,9 +9,9 @@ The current MVP is intentionally simple:
 - **Reflection intake** — write what happened in plain language.
 - **Conversation preparation** — generate one grounded thing you could say, plus optional deeper notes.
 - **Reflection library** — save and revisit prior reflections.
-- **Aimee** — an experimental assistant surface for reflection and communication support.
+- **Aimee** — conversational reflection guide with optional browser voice input/output and memory review.
 
-Shared spaces, realtime voice, LiveKit, and live mediation are future milestone surfaces. They are not the active MVP 1 product path.
+Shared spaces, LiveKit rooms, realtime multi-person voice, and live mediation are future milestone surfaces. Browser-based single-user voice input/output inside Aimee is experimental and local-first.
 
 Feltabout is communication support software. It is not medical care, diagnosis, treatment, or emergency support.
 
@@ -200,24 +200,35 @@ feltabout/
 - `/` — landing page
 - `/session` — single-input conversation preparation flow
 - `/library` — reflection history
+- `/memories` — saved emotional memories/reflections from Aimee
 - `/login` — sign in
 - `/register` — create account
 - `/aimee` — experimental assistant
+
+## Aimee voice status
+
+Aimee currently supports experimental browser-based voice features:
+
+- **Speech-to-text**: browser Web Speech API mic input when supported by the user’s browser.
+- **Text-to-speech**: browser speech synthesis for Aimee responses.
+- **Piper TTS**: infrastructure/reference exists, but browser TTS is currently the active path for speed and simplicity.
+- **Scope**: single-user reflection/composer assistance only. This is not LiveKit, not realtime multi-user mediation, and not production-grade voice infrastructure.
+
+Browser support varies. Chrome/Edge are the primary targets; unsupported browsers should fall back to typed input.
 
 ---
 
 ## Not included in MVP 1
 
 - LiveKit rooms
-- Speech-to-text
-- Text-to-speech
-- Realtime voice sessions
+- Realtime multi-user voice sessions
 - Full live mediation
 - Production email delivery
 - Redis caching
 - Payment processing
 - Push notifications
 - PDF export
+- Production-grade voice infrastructure
 
 ---
 
@@ -250,4 +261,4 @@ Extraction is an internal stage inside the reflection pipeline, not a separate p
 
 ---
 
-Last updated: 2026-05-11
+Last updated: 2026-05-15
