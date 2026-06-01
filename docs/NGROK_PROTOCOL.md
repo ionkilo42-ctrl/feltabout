@@ -18,8 +18,8 @@ The browser only sees one public URL. The frontend continues to proxy `/api/*` r
 ## Prerequisites
 
 - Docker Desktop running
-- `ngrok` installed and authenticated on this Mac
-- Repo root: `/Users/jonathankillough/Desktop/CLAW/Feltabout`
+- `ngrok` installed and authenticated on your machine
+- Run commands from your local Feltabout repository root
 
 You can verify ngrok locally with:
 

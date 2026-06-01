@@ -32,9 +32,9 @@ Feltabout is designed around explicit product and language boundaries:
 
 Start here for the full safety model:
 
-- [docs/safety-spec.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/docs/safety-spec.md)
-- [docs/SAFETY_BOUNDARIES.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/docs/SAFETY_BOUNDARIES.md)
-- [docs/language-boundaries.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/docs/language-boundaries.md)
+- [docs/safety-spec.md](docs/safety-spec.md)
+- [docs/SAFETY_BOUNDARIES.md](docs/SAFETY_BOUNDARIES.md)
+- [docs/language-boundaries.md](docs/language-boundaries.md)
 
 ## Core Features
 
@@ -62,7 +62,7 @@ Feltabout follows a three-engine separation:
 
 Safety gates generation first. The current backend exposes reflection, library, guide, analytics, and experimental v2/Aimee-style routes. The legacy `backend/` directory is preserved for reference and is not the primary MVP 1 backend.
 
-See [docs/ARCHITECTURE.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/docs/ARCHITECTURE.md) for the public architecture overview and [ARCHITECTURE.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/ARCHITECTURE.md) for the repository file map.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the public architecture overview and [ARCHITECTURE.md](ARCHITECTURE.md) for the repository file map.
 
 ## Repository Status
 
@@ -76,6 +76,8 @@ This repository is pre-release software. The CI workflow currently validates:
 The codebase includes active MVP 1 paths and legacy/reference code for future directions. Public claims in this repository should be interpreted conservatively and against the code that is actually wired today.
 
 ## Local Development Setup
+
+For a fuller contributor bootstrap, environment-variable notes, and troubleshooting, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Prerequisites
 
@@ -93,9 +95,9 @@ docker compose up --build
 
 Services:
 
-- Web: `http://localhost:3000`
-- API: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
+- Web: `http://127.0.0.1:3000`
+- API: `http://127.0.0.1:8000`
+- API docs: `http://127.0.0.1:8000/docs`
 - Postgres: `localhost:5432`
 
 Stop the stack:
@@ -121,7 +123,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-DATABASE_URL=sqlite+aiosqlite:///./feltabout.db USE_AUTH=false uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+DATABASE_URL=sqlite+aiosqlite:///./feltabout-dev.db \
+USE_AUTH=false \
+AI_PROVIDER=local \
+OPENAI_API_KEY='' \
+MINIMAX_API_KEY='' \
+ENCRYPTION_KEY='nY1jcI7NI5vxhAXu7r_MT4h84trDxTcf6dzWTqtlSUU=' \
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ### Web app only
@@ -129,7 +137,7 @@ DATABASE_URL=sqlite+aiosqlite:///./feltabout.db USE_AUTH=false uvicorn app.main:
 ```bash
 cd frontend
 pnpm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 pnpm dev
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 pnpm dev -H 127.0.0.1 -p 3000
 ```
 
 ### Mobile app only
@@ -137,7 +145,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000 pnpm dev
 ```bash
 cd apps/mobile
 npm ci
-EXPO_PUBLIC_API_URL=http://localhost:8000 npm run start
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npm run start
 ```
 
 ## Environment Variables
@@ -172,6 +180,11 @@ Notes:
 From the repository root, the currently documented validation commands are:
 
 ```bash
+AI_PROVIDER=local \
+DATABASE_URL=sqlite+aiosqlite:///:memory: \
+OPENAI_API_KEY='' \
+USE_AUTH=false \
+ENCRYPTION_KEY='nY1jcI7NI5vxhAXu7r_MT4h84trDxTcf6dzWTqtlSUU=' \
 python -m pytest services/api/tests -q
 cd frontend && pnpm build
 cd apps/mobile && npm run typecheck
@@ -213,7 +226,7 @@ A private history view for saved reflections and emerging patterns.
 
 ## Roadmap
 
-See [docs/ROADMAP.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/docs/ROADMAP.md).
+See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Near-term themes:
 
@@ -228,13 +241,13 @@ Contributions should preserve the project’s non-clinical and safety-first boun
 
 Before opening a PR:
 
-- read [AGENTS.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/AGENTS.md)
+- read [AGENTS.md](AGENTS.md)
 - read the core product and safety docs in `docs/`
 - avoid claims or features that frame Feltabout as therapy, diagnosis, or crisis care
 - add or update tests for safety-sensitive behavior when practical
 
-See [CONTRIBUTING.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/CONTRIBUTING.md) and [SECURITY.md](/Users/jonathankillough/Desktop/CLAW/Feltabout/SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 
-This repository is licensed under the MIT License. See [LICENSE](/Users/jonathankillough/Desktop/CLAW/Feltabout/LICENSE).
+This repository is licensed under the MIT License. See [LICENSE](LICENSE).
