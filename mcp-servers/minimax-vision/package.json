@@ -1,0 +1,20 @@
+{
+  "name": "minimax-vision-mcp",
+  "version": "1.0.0",
+  "description": "MiniMax Vision MCP server for Cline - analyze images using MiniMax VL models",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
