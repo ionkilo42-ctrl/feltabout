@@ -23,6 +23,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
+# Configure root logger so app.* loggers write to stdout alongside uvicorn logs
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO"),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 _allowed_origins = os.environ.get(
@@ -66,31 +72,28 @@ from app.api.routes_memories import router as memories_router
 from app.api.routes_feelflow import router as feelflow_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_conversation_spaces import router as conversation_spaces_router
+from app.api.routes_session_messages import router as session_messages_router
 from app.api.routes_library import router as library_router
 from app.api.routes_patterns import router as patterns_router
-from app.api.routes_v2 import (
-    memories_router as v2_memories_router,
-    feelings_router,
-    entities_router,
-    needs_router,
-    aimee_router,
-)
-from app.routes_aimee import router as aimee_chat_router
+from app.api.routes_v2 import memories_router, feelings_router, entities_router, needs_router, aimee_router
+from app.api.routes_tts import router as tts_router
+from app.api.routes_guide import router as guide_router
 
 app.include_router(auth_router)
 app.include_router(conversation_spaces_router)
+app.include_router(session_messages_router)
 app.include_router(reflections_router)
 app.include_router(analytics_router)
 app.include_router(memories_router)
 app.include_router(feelflow_router)
 app.include_router(library_router)
 app.include_router(patterns_router)
-app.include_router(v2_memories_router)
+app.include_router(tts_router)
 app.include_router(feelings_router)
 app.include_router(entities_router)
 app.include_router(needs_router)
 app.include_router(aimee_router)
-app.include_router(aimee_chat_router)
+app.include_router(guide_router)
 
 
 @app.get("/health")

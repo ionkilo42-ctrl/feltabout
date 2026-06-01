@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.routes_auth import require_user
+from app.api.routes_auth import require_admin
 from app.db.session import get_db
 from app.models import Reflection, ReflectionFeedback, ReflectionOutput, SafetyEvent
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/analytics/feedback-summary")
 async def get_feedback_summary(
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_admin),
 ):
     """
     Aggregated feedback metrics for the last N days.
@@ -120,7 +120,7 @@ async def get_feedback_summary(
 async def get_recent_outputs(
     limit: int = 10,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_admin),
 ):
     """
     Recent conversation plan outputs for manual review.
@@ -163,7 +163,7 @@ async def get_recent_outputs(
 async def get_safety_events(
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_admin),
 ):
     """
     Recent safety events for review.
@@ -195,7 +195,7 @@ async def update_output_review_status(
     output_id: str,
     data: dict,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_admin),
 ):
     """
     Update human review status for an output.

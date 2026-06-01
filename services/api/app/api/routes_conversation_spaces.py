@@ -28,6 +28,7 @@ router = APIRouter(prefix="/conversation-spaces", tags=["conversation-spaces"])
 class CreateConversationSpaceRequest(BaseModel):
     name: Optional[str] = None
     max_participants: int = 2
+    frontend_origin: Optional[str] = None  # Browser origin for invite links
 
 
 class ConversationSpaceResponse(BaseModel):
@@ -40,6 +41,8 @@ class ConversationSpaceResponse(BaseModel):
     is_owner: bool
     # WebSocket connection info (internal, not for UI display)
     websocket_session_id: Optional[str] = None
+    # Invite URL for owners (not exposed to non-owners)
+    invite_url: Optional[str] = None
 
 
 class CreateConversationSpaceResponse(BaseModel):
@@ -47,6 +50,7 @@ class CreateConversationSpaceResponse(BaseModel):
     name: Optional[str]
     invite_url: str  # Full URL with raw token
     max_participants: int
+    invite_token: str  # Raw token for sharing
 
 
 class VerifyInviteResponse(BaseModel):
@@ -85,7 +89,7 @@ class ListConversationSpacesResponse(BaseModel):
 @router.post("", response_model=CreateConversationSpaceResponse, status_code=201)
 async def create_conversation_space(
     data: CreateConversationSpaceRequest,
-    current_user: dict = Depends(require_user),
+    current_user: dict = Depends(require_user),  # Returns dev user when USE_AUTH=false
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -93,17 +97,24 @@ async def create_conversation_space(
     
     The owner is automatically added as the first participant.
     An invite link is generated and returned.
+    
+    For MVP: When USE_AUTH=false, this works without real authentication.
+    Users just need a display name to create/join sessions.
     """
     service = ConversationSpaceService(db)
     
+    # When USE_AUTH=false, current_user["sub"] will be "dev-user" (local dev mode)
+    # For true anonymity in future, this could be None
+    owner_id = current_user["sub"]
+    
     space, raw_token = await service.create_space(
-        owner_user_id=current_user["sub"],
+        owner_user_id=owner_id,
         name=data.name,
         max_participants=data.max_participants,
     )
     
-    # Generate invite URL
-    frontend_url = current_user.get("frontend_url", "http://localhost:3000")
+    # Generate invite URL using browser-provided origin (works for localhost, ngrok, deployed)
+    frontend_url = data.frontend_origin.rstrip('/') if data.frontend_origin else "http://localhost:3000"
     invite_url = f"{frontend_url}/join/{raw_token}"
     
     return CreateConversationSpaceResponse(
@@ -111,6 +122,7 @@ async def create_conversation_space(
         name=space.name,
         invite_url=invite_url,
         max_participants=space.max_participants,
+        invite_token=raw_token,
     )
 
 
@@ -250,9 +262,14 @@ async def join_conversation_space(
     )
 
 
+class RegenerateInviteRequest(BaseModel):
+    frontend_origin: Optional[str] = None  # Browser origin for invite links
+
+
 @router.post("/{space_id}/regenerate-invite")
 async def regenerate_invite(
     space_id: str,
+    data: RegenerateInviteRequest = RegenerateInviteRequest(),
     current_user: dict = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -266,7 +283,8 @@ async def regenerate_invite(
     if not new_token:
         raise HTTPException(status_code=403, detail="Not authorized to regenerate invite")
     
-    frontend_url = current_user.get("frontend_url", "http://localhost:3000")
+    # Use browser-provided origin if available
+    frontend_url = data.frontend_origin.rstrip('/') if data.frontend_origin else "http://localhost:3000"
     invite_url = f"{frontend_url}/join/{new_token}"
     
-    return {"invite_url": invite_url}
+    return {"invite_url": invite_url, "invite_token": new_token}

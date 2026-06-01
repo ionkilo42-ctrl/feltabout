@@ -1,12 +1,14 @@
-'use client'
+"use client"
 
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
-import { useAuthStore } from '@/store/sessionStore'
+import { useParticipantStore } from '@/store/sessionStore'
+import { isSttSupported, startListening, stopListening } from '@/lib/voice/stt'
+import styles from './SessionPage.module.css'
 
-type Step = 'input' | 'generating' | 'done' | 'error'
+type Step = 'name-prompt' | 'input' | 'generating' | 'done' | 'error'
 
 interface PlanOutput {
   simple_opener?: string
@@ -20,13 +22,31 @@ interface PlanOutput {
   repair_statement?: string
 }
 
+interface MemorySuggestion {
+  title: string
+  summary: string
+  reason: string
+  reflection_id: string
+}
+
 interface GenerateResponse {
   is_crisis: boolean
   severity: string
   message: string
   resources: string[]
   output?: PlanOutput | null
+  memory_suggestion?: MemorySuggestion | null
+  reflection_id?: string
 }
+
+type FeedbackStep = 'initial' | 'followup'
+
+const REACTION_OPTIONS = [
+  { value: 1, label: 'Better than expected', icon: '↑' },
+  { value: 2, label: 'About the same', icon: '→' },
+  { value: 3, label: 'Worse than expected', icon: '↓' },
+  { value: 4, label: "Didn't have it", icon: '—' },
+] as const
 
 const DETAILS: { key: keyof PlanOutput; label: string }[] = [
   { key: 'emotional_summary', label: "What you're carrying" },
@@ -41,25 +61,26 @@ const DETAILS: { key: keyof PlanOutput; label: string }[] = [
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="session-page">
-      <header className="app-header">
-        <div className="brand-lockup">
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.brandLockup}>
           <Link href="/">
-            <img className="brand-mark" src="/logo.png" alt="Feltabout" />
+            <img className={styles.brandMark} src="/logo.png" alt="Feltabout" />
           </Link>
         </div>
       </header>
-
-      <div className="session-container">{children}</div>
-      <style>{styles}</style>
-    </div>
+      <div className={styles.container}>{children}</div>
+    </main>
   )
 }
 
 export default function SessionPage() {
   const router = useRouter()
-  const token = useAuthStore(s => s.token)
-  const [step, setStep] = useState<Step>('input')
+  const participant = useParticipantStore((s) => s.participant)
+  const setParticipant = useParticipantStore((s) => s.setParticipant)
+
+  const [step, setStep] = useState<Step>('name-prompt')
+  const [promptName, setPromptName] = useState('')
   const [situation, setSituation] = useState('')
   const [desiredOutcome, setDesiredOutcome] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -68,14 +89,102 @@ export default function SessionPage() {
   const [fullOutput, setFullOutput] = useState<PlanOutput | null>(null)
   const [safetyResources, setSafetyResources] = useState<string[]>([])
 
+  const [memorySuggestion, setMemorySuggestion] = useState<MemorySuggestion | null>(null)
+  const [reflectionId, setReflectionId] = useState<string | null>(null)
+  const [memoryDismissed, setMemoryDismissed] = useState(false)
+
+  const [feedbackStep, setFeedbackStep] = useState<FeedbackStep>('initial')
+  const [preparedScore, setPreparedScore] = useState<number | null>(null)
+  const [lessReactiveScore, setLessReactiveScore] = useState<number | null>(null)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+
+  const [howDidItGo, setHowDidItGo] = useState<number | null>(null)
+  const [whatHappened, setWhatHappened] = useState('')
+  const [followupSubmitted, setFollowupSubmitted] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  // Guard against React StrictMode double-invoke (effects run twice in dev)
+  const isSubmittingRef = useRef(false)
+
+  // STT state
+  const [sttSupported, setSttSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const stopListeningRef = useRef<(() => void) | null>(null)
+
+  // Auto-resize textarea as content grows
+  const autoResize = useCallback(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [])
+
+  useEffect(() => {
+    setSttSupported(isSttSupported())
+  }, [])
+
+  useEffect(() => {
+    if (participant) {
+      setStep('input')
+    }
+  }, [participant])
+
+  const handleNamePromptSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!promptName.trim()) return
+
+    setParticipant({
+      participantId: '',
+      displayName: promptName.trim(),
+      spaceId: '',
+      isOwner: false,
+      joinedAt: new Date().toISOString(),
+    })
+    setStep('input')
+  }
+
+  // Toggle talk mode - click to start, click again to stop
+  const handleTalkToggle = async () => {
+    if (!sttSupported) return
+
+    if (isRecording) {
+      // Stop recording
+      if (stopListeningRef.current) {
+        stopListeningRef.current()
+        stopListeningRef.current = null
+      }
+      setIsRecording(false)
+    } else {
+      // Start recording
+      setIsRecording(true)
+
+      // Use continuous listening
+      stopListeningRef.current = startListening(
+        (transcript, isFinal) => {
+          if (isFinal) {
+            // Add final transcript to input
+            setSituation((prev) => {
+              const newText = (prev ? prev + ' ' : '') + transcript
+              return newText
+            })
+          }
+        },
+        (error) => {
+          console.warn('Speech recognition error:', error)
+          setIsRecording(false)
+          stopListeningRef.current = null
+        }
+      )
+    }
+  }
+
   const handleSubmit = async () => {
     const trimmedSituation = situation.trim()
     if (!trimmedSituation) return
 
-    if (!token) {
-      router.push('/login')
-      return
-    }
+    // Guard against double-submit (React StrictMode + network retry)
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
     setStep('generating')
     setError(null)
@@ -84,15 +193,11 @@ export default function SessionPage() {
     try {
       const createRes = await fetch(apiUrl('/reflections'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: trimmedSituation.slice(0, 80),
           situation: trimmedSituation,
           desired_outcome: desiredOutcome.trim(),
-          // Legacy fields kept empty for backward compat
           feelings: '',
           interpretation: '',
           needs: '',
@@ -110,10 +215,7 @@ export default function SessionPage() {
 
       const genRes = await fetch(apiUrl(`/reflections/${reflection.id}/generate`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
       })
 
       if (!genRes.ok) {
@@ -130,6 +232,10 @@ export default function SessionPage() {
       } else if (generated.output) {
         setSimpleOpener(generated.output.simple_opener || generated.output.conversation_opener || '')
         setFullOutput(generated.output)
+        if (generated.memory_suggestion) {
+          setMemorySuggestion(generated.memory_suggestion)
+          setReflectionId(reflection.id)
+        }
       } else {
         throw new Error('No plan output returned')
       }
@@ -138,6 +244,70 @@ export default function SessionPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setStep('error')
+    } finally {
+      isSubmittingRef.current = false
+    }
+  }
+
+  const handleSaveMemory = async () => {
+    if (!reflectionId) return
+    try {
+      await fetch(apiUrl('/memories'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reflection_id: reflectionId,
+          memory_type: 'emotional_pattern',
+          title: memorySuggestion?.title,
+          content: memorySuggestion?.summary,
+          is_private: true,
+        }),
+      })
+      setMemorySuggestion(null)
+    } catch (err) {
+      console.error('Failed to save memory:', err)
+    }
+  }
+
+  const handleSkipMemory = () => {
+    setMemoryDismissed(true)
+  }
+
+  const handleSubmitFeedback = async () => {
+    if (!reflectionId || preparedScore === null || lessReactiveScore === null) return
+    setFeedbackSubmitting(true)
+    try {
+      await fetch(apiUrl(`/reflections/${reflectionId}/feedback`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prepared_score: preparedScore,
+          less_reactive_score: lessReactiveScore,
+          helpful_text: '',
+        }),
+      })
+      setFeedbackStep('followup')
+    } catch (err) {
+      console.error('Failed to submit feedback:', err)
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
+
+  const handleSubmitFollowup = async () => {
+    if (!reflectionId) return
+    try {
+      await fetch(apiUrl(`/reflections/${reflectionId}/feedback`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          how_did_it_go: howDidItGo,
+          what_happened: whatHappened,
+        }),
+      })
+      setFollowupSubmitted(true)
+    } catch (err) {
+      console.error('Failed to submit follow-up:', err)
     }
   }
 
@@ -150,19 +320,52 @@ export default function SessionPage() {
     setShowFullDetails(false)
     setFullOutput(null)
     setSafetyResources([])
+    setMemorySuggestion(null)
+    setReflectionId(null)
+    setMemoryDismissed(false)
+    setFeedbackStep('initial')
+    setPreparedScore(null)
+    setLessReactiveScore(null)
+    setHowDidItGo(null)
+    setWhatHappened('')
+    setFollowupSubmitted(false)
   }
 
   const hasDetails = fullOutput && DETAILS.some(detail => Boolean(fullOutput[detail.key]))
 
+  if (step === 'name-prompt') {
+    return (
+      <PageShell>
+        <div className={styles.namePrompt}>
+          <h1>What should we call you?</h1>
+          <form onSubmit={handleNamePromptSubmit} className={styles.nameForm}>
+            <input
+              className={styles.nameInput}
+              type="text"
+              placeholder="Your name"
+              value={promptName}
+              onChange={(e) => setPromptName(e.target.value)}
+              autoFocus
+            />
+            <button className="btn-primary" type="submit" disabled={!promptName.trim()}>
+              Continue
+            </button>
+          </form>
+          <p className={styles.nameNote}>No account needed.</p>
+        </div>
+      </PageShell>
+    )
+  }
+
   if (step === 'generating') {
     return (
       <PageShell>
-        <div className="session-generating">
-          <div className="generating-card">
-            <div className="generating-animation">
-              <div className="dot"></div>
-              <div className="dot"></div>
-              <div className="dot"></div>
+        <div className={styles.generating}>
+          <div className={styles.generatingCard}>
+            <div className={styles.generatingDots}>
+              <div className={styles.dot} />
+              <div className={styles.dot} />
+              <div className={styles.dot} />
             </div>
             <h2>Finding the right words</h2>
             <p>One moment...</p>
@@ -175,9 +378,9 @@ export default function SessionPage() {
   if (step === 'error') {
     return (
       <PageShell>
-        <div className="session-intro">
+        <div className={styles.errorIntro}>
           <h2>Something went wrong</h2>
-          <p className="error-text">{error}</p>
+          <p className={styles.errorText}>{error}</p>
           <button className="btn-primary" onClick={handleRestart}>
             Try again
           </button>
@@ -189,14 +392,14 @@ export default function SessionPage() {
   if (step === 'done') {
     return (
       <PageShell>
-        <div className="session-done">
-          <div className="opener-card">
-            <div className="opener-label">One thing you could say</div>
-            <p className="opener-text">{simpleOpener}</p>
+        <div className={styles.done}>
+          <div className={styles.openerCard}>
+            <div className={styles.openerLabel}>One thing you could say</div>
+            <p className={styles.openerText}>{simpleOpener}</p>
           </div>
 
           {safetyResources.length > 0 && (
-            <div className="resources-list">
+            <div className={styles.resourcesList}>
               {safetyResources.map(resource => (
                 <p key={resource}>{resource}</p>
               ))}
@@ -204,28 +407,28 @@ export default function SessionPage() {
           )}
 
           {desiredOutcome && (
-            <div className="outcome-note">
+            <p className={styles.outcomeNote}>
               You wanted: {desiredOutcome}
-            </div>
+            </p>
           )}
 
           {hasDetails && (
-            <div className="details-section">
+            <div className={styles.detailsSection}>
               <button
-                className="details-toggle"
+                className={styles.detailsToggle}
                 onClick={() => setShowFullDetails(!showFullDetails)}
               >
                 {showFullDetails ? 'Hide details' : 'See full details'}
               </button>
 
               {showFullDetails && (
-                <div className="details-content">
+                <div className={styles.detailsContent}>
                   {DETAILS.map(detail => {
                     const value = fullOutput?.[detail.key]
                     if (!value) return null
                     return (
-                      <div key={detail.key} className="detail-card">
-                        <div className="detail-label">{detail.label}</div>
+                      <div key={detail.key} className={styles.detailCard}>
+                        <div className={styles.detailLabel}>{detail.label}</div>
                         <p>{value}</p>
                       </div>
                     )
@@ -235,13 +438,111 @@ export default function SessionPage() {
             </div>
           )}
 
-          <div className="done-actions">
-            <Link href="/library" className="btn-primary">
-              View in library
-            </Link>
-            <button className="btn-ghost" onClick={handleRestart}>
+          {memorySuggestion && !memoryDismissed && (
+            <div className={styles.memoryCard}>
+              <div className={styles.memoryLabel}>Personal insight detected</div>
+              <h3 className={styles.memoryTitle}>{memorySuggestion.title}</h3>
+              <p className={styles.memorySummary}>{memorySuggestion.summary}</p>
+              <p className={styles.memoryReason}>Why this matters: {memorySuggestion.reason}</p>
+              <div className={styles.memoryActions}>
+                <button className="btn-primary btn-sm" onClick={handleSaveMemory}>
+                  Save to my insights
+                </button>
+                <button className="btn-ghost btn-sm" onClick={handleSkipMemory}>
+                  Skip
+                </button>
+              </div>
+            </div>
+          )}
+
+          {feedbackStep === 'initial' && !followupSubmitted && (
+            <div className={styles.feedbackSection}>
+              <h3 className={styles.feedbackTitle}>How did the plan feel?</h3>
+              <div className={styles.feedbackRow}>
+                <span className={styles.feedbackLabel}>Prepared for the conversation</span>
+                <div className={styles.scoreButtons}>
+                  {[1, 2, 3].map(score => (
+                    <button
+                      key={score}
+                      className={`${styles.scoreBtn} ${preparedScore === score ? styles.selected : ''}`}
+                      onClick={() => setPreparedScore(score)}
+                    >
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'}{' '}
+                      {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.feedbackRow}>
+                <span className={styles.feedbackLabel}>Feeling less reactive</span>
+                <div className={styles.scoreButtons}>
+                  {[1, 2, 3].map(score => (
+                    <button
+                      key={score}
+                      className={`${styles.scoreBtn} ${lessReactiveScore === score ? styles.selected : ''}`}
+                      onClick={() => setLessReactiveScore(score)}
+                    >
+                      {score === 1 ? '↓' : score === 2 ? '→' : '↑'}{' '}
+                      {score === 1 ? 'No' : score === 2 ? 'Somewhat' : 'Yes'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="btn-primary"
+                onClick={handleSubmitFeedback}
+                disabled={preparedScore === null || lessReactiveScore === null || feedbackSubmitting}
+              >
+                {feedbackSubmitting ? 'Saving...' : 'Continue'}
+              </button>
+            </div>
+          )}
+
+          {feedbackStep === 'followup' && !followupSubmitted && (
+            <div className={styles.feedbackSection}>
+              <h3 className={styles.feedbackTitle}>How did it actually go?</h3>
+              <div className={styles.reactionOptions}>
+                {REACTION_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    className={`${styles.reactionBtn} ${howDidItGo === option.value ? styles.selected : ''}`}
+                    onClick={() => setHowDidItGo(option.value)}
+                  >
+                    <span className={styles.reactionIcon}>{option.icon}</span>
+                    <span className={styles.reactionLabel}>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className={styles.feedbackTextarea}
+                placeholder="What happened? (optional)"
+                value={whatHappened}
+                onChange={e => setWhatHappened(e.target.value)}
+                rows={3}
+              />
+              <button
+                className="btn-primary"
+                onClick={handleSubmitFollowup}
+                disabled={howDidItGo === null}
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          {followupSubmitted && (
+            <div className={styles.feedbackThanks}>
+              <p>Thanks for sharing. Your experience helps improve future sessions.</p>
+            </div>
+          )}
+
+          <div className={styles.doneActions}>
+            <button className="btn-primary" onClick={handleRestart}>
               Start another
             </button>
+            <Link href="/" className="btn-ghost">
+              Go home
+            </Link>
           </div>
         </div>
       </PageShell>
@@ -250,35 +551,51 @@ export default function SessionPage() {
 
   return (
     <PageShell>
-      <div className="session-input">
-        <div className="input-header">
+      <div className={styles.inputStep}>
+        <div className={styles.inputHeader}>
           <h2>Tell me what's going on.</h2>
-          <p className="input-subtitle">Say it messy. We'll find the clarity.</p>
+          <p className={styles.inputSubtitle}>Say it messy. We'll find the clarity.</p>
         </div>
 
-        <div className="input-fields">
-          <textarea
-            value={situation}
-            onChange={e => setSituation(e.target.value)}
-            placeholder="Something happened, or it's been building up. Just get it out..."
-            rows={6}
-            className="main-input"
-            autoFocus
-          />
-
-          <div className="optional-field">
-            <label>What do you want from this conversation? (optional)</label>
+        <div className={styles.inputFields}>
+          <div className={styles.inputWithMic}>
             <textarea
+              ref={textareaRef}
+              className={styles.mainInput}
+              value={situation}
+              onChange={e => { setSituation(e.target.value); autoResize(); }}
+              onInput={autoResize}
+              placeholder="Something happened, or it's been building up. Just get it out..."
+              rows={6}
+              autoFocus
+            />
+            {sttSupported && (
+              <button
+                className={`${styles.talkBtn} ${isRecording ? styles.recording : ''}`}
+                onClick={handleTalkToggle}
+                aria-label={isRecording ? 'Stop listening' : 'Start listening'}
+                title={isRecording ? 'Tap to stop listening' : 'Tap to start listening'}
+              >
+                {isRecording ? '⏹️' : '🎤'}
+              </button>
+            )}
+          </div>
+
+          <div className={styles.optionalField}>
+            <label className={styles.optionalLabel}>
+              What do you want from this conversation? (optional)
+            </label>
+            <textarea
+              className={styles.secondaryInput}
               value={desiredOutcome}
               onChange={e => setDesiredOutcome(e.target.value)}
               placeholder="e.g. I want us to understand each other better, not fix everything tonight"
               rows={2}
-              className="secondary-input"
             />
           </div>
         </div>
 
-        <div className="input-actions">
+        <div className={styles.inputActions}>
           <button
             className="btn-primary"
             onClick={handleSubmit}
@@ -291,351 +608,3 @@ export default function SessionPage() {
     </PageShell>
   )
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = `
-.session-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-header {
-  display: flex;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-}
-
-.brand-lockup {
-  flex: 1;
-}
-
-.brand-mark {
-  height: 24px;
-  width: auto;
-}
-
-.session-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 2rem 1.5rem;
-  max-width: 560px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Input step */
-.session-input {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.input-header h2 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary, #111827);
-  margin: 0 0 0.5rem;
-}
-
-.input-subtitle {
-  font-size: 1rem;
-  color: var(--text-muted, #6b7280);
-  margin: 0;
-}
-
-.input-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.main-input {
-  width: 100%;
-  padding: 1rem;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 1rem;
-  line-height: 1.6;
-  resize: vertical;
-  min-height: 160px;
-  background: white;
-  color: var(--text-primary, #111827);
-}
-
-.main-input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-  box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
-}
-
-.main-input::placeholder {
-  color: var(--text-quiet, #9ca3af);
-}
-
-.optional-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.optional-field label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary, #6b7280);
-}
-
-.secondary-input {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  resize: vertical;
-  background: white;
-  color: var(--text-primary, #111827);
-}
-
-.secondary-input:focus {
-  outline: none;
-  border-color: var(--accent, #e07a5f);
-}
-
-.secondary-input::placeholder {
-  color: var(--text-quiet, #9ca3af);
-}
-
-.input-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Generating step */
-.session-generating {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.generating-card {
-  text-align: center;
-}
-
-.generating-animation {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  background: var(--accent, #e07a5f);
-  border-radius: 50%;
-  animation: bounce 1.4s ease-in-out infinite;
-}
-
-.dot:nth-child(1) { animation-delay: 0s; }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-12px); }
-}
-
-.generating-card h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
-  margin: 0 0 0.5rem;
-}
-
-.generating-card p {
-  font-size: 0.9375rem;
-  color: var(--text-muted, #6b7280);
-  margin: 0;
-}
-
-/* Done step */
-.session-done {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.opener-card {
-  background: white;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.opener-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent, #e07a5f);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-}
-
-.opener-text {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: var(--text-primary, #111827);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.outcome-note {
-  font-size: 0.875rem;
-  color: var(--text-muted, #6b7280);
-  font-style: italic;
-}
-
-.resources-list {
-  background: white;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 12px;
-  padding: 1rem;
-}
-
-.resources-list p {
-  color: var(--text-primary, #111827);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  margin: 0 0 0.5rem;
-}
-
-.resources-list p:last-child {
-  margin-bottom: 0;
-}
-
-.details-section {
-  border-top: 1px solid var(--color-border, #e5e7eb);
-  padding-top: 1rem;
-}
-
-.details-toggle {
-  background: none;
-  border: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-muted, #6b7280);
-  cursor: pointer;
-  padding: 0.5rem 0;
-}
-
-.details-toggle:hover {
-  color: var(--text-primary, #111827);
-}
-
-.details-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-  margin-top: 0.75rem;
-}
-
-.detail-card {
-  background: var(--card, white);
-  border: 1px solid var(--border-subtle, #f3f4f6);
-  border-radius: 10px;
-  padding: 1rem;
-}
-
-.detail-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--text-quiet, #9ca3af);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.detail-card p {
-  font-size: 0.9375rem;
-  color: var(--text-primary, #111827);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.done-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-/* Buttons */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0.75rem 1.5rem;
-  background: var(--accent, #e07a5f);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #c9603f;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-ghost {
-  background: none;
-  border: none;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--text-muted, #6b7280);
-  cursor: pointer;
-  padding: 0.75rem;
-}
-
-.btn-ghost:hover {
-  color: var(--text-primary, #111827);
-}
-
-.session-intro {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  gap: 1rem;
-}
-
-.session-intro h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary, #111827);
-  margin: 0;
-}
-
-.error-text {
-  color: #dc2626;
-  font-size: 0.9375rem;
-  margin: 0;
-}
-`

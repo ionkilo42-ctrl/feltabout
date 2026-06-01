@@ -13,14 +13,25 @@ import {
   EMOTION_COLORS,
   PrimaryEmotion,
 } from '../../lib/v2-api'
+import { speak, stopSpeaking, isTtsSupported } from '../../lib/voice/tts'
+import { isSttSupported, startListening, stopListening } from '../../lib/voice/stt'
+import styles from './AimeePage.module.css'
 
-type ChatMessage = {
-  id: number
-  speaker: 'aimee' | 'user'
-  text: string
-  time: string
+function buildReviewPlayback(extraction: ExtractionData): string {
+  const parts = [extraction.feeling]
+
+  if (extraction.entity) {
+    parts.push(`about ${extraction.entity}`)
+  } else if (extraction.topic) {
+    parts.push(`around ${extraction.topic}`)
+  }
+
+  const needsText = extraction.needs[0] ? ` with a need for ${extraction.needs[0]}` : ''
+
+  return `Before I save anything, here is what I think I am holding onto: ${parts.join(' ')}${needsText}. Review it below and save it only if it looks right.`
 }
 
+// Convert API extraction to ExtractionData format
 function apiToExtractionData(api: ExtractionResponse): ExtractionData {
   const feeling = api.feelings[0]
   return {
@@ -35,7 +46,11 @@ function apiToExtractionData(api: ExtractionResponse): ExtractionData {
   }
 }
 
-function extractionToConfirm(data: ExtractionData, sourceText: string): ConfirmRequest {
+// Convert ExtractionData to ConfirmRequest
+function extractionToConfirm(
+  data: ExtractionData,
+  sourceText: string
+): ConfirmRequest {
   return {
     source_text: sourceText,
     memory_title: data.suggestedMemoryTitle || 'New reflection',
@@ -53,329 +68,509 @@ function extractionToConfirm(data: ExtractionData, sourceText: string): ConfirmR
   }
 }
 
-function buildConversationContext(messages: ChatMessage[]): string {
-  return messages
-    .slice(-8)
-    .map(msg => `${msg.speaker === 'aimee' ? 'Aimee' : 'User'}: ${msg.text}`)
-    .join('\n')
-}
-
-function fallbackAimeeReply(text: string, recentMessages: ChatMessage[]): string {
-  const lower = text.toLowerCase()
-  const recentAimeeReplies = recentMessages
-    .filter(msg => msg.speaker === 'aimee')
-    .slice(-3)
-    .map(msg => msg.text)
-
-  if (
-    lower.includes("my name isn't") ||
-    lower.includes('not my name') ||
-    lower.includes("i'm coding") ||
-    lower.includes('im coding')
-  ) {
-    return "You're right — I misunderstood that. You were saying you're coding and feeling okay, not telling me your name. Let's reset: what's actually happening right now?"
-  }
-
-  if (
-    lower.includes('infuriated') ||
-    lower.includes('fucking') ||
-    lower.includes('fuck') ||
-    lower.includes('dumb') ||
-    lower.includes('asshole') ||
-    lower.includes("isn't working") ||
-    lower.includes('not working') ||
-    lower.includes('broken')
-  ) {
-    return "Yeah, this is frustrating. I don't want to keep looping on you. Tell me the specific thing that feels broken, and I'll stay with that instead of asking the same vague question again."
-  }
-
-  if (lower.includes('ok') || lower.includes('fine') || lower.includes('good')) {
-    return "Got it — you seem mostly okay right now. Is there something specific you want to think through, or are you just testing how I respond?"
-  }
-
-  const looped = recentAimeeReplies.length >= 2 && recentAimeeReplies.every(reply => reply === recentAimeeReplies[0])
-  if (looped) {
-    return "I think I got stuck repeating myself. Let me reset: what part should I pay attention to first?"
-  }
-
-  return "I'm with you. What feels most important in what you just said?"
-}
-
 export default function AimeePage() {
   const router = useRouter()
-  const nextMessageId = useRef(2)
-
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  const hasHydratedScrollRef = useRef(false)
+  const currentRequestIdRef = useRef(0)
+  const stopListeningRef = useRef<(() => void) | null>(null)
+  const latestExtractionRef = useRef<ExtractionData | null>(null)
+  const latestSourceTextRef = useRef('')
+  const nextMessageIdRef = useRef(2)
+  
+  // Chat state - initialize with empty time for SSR hydration safety
+  const [messages, setMessages] = useState<Array<{
+    id: number
+    speaker: 'aimee' | 'user'
+    text: string
+    time: string
+  }>>([
     {
       id: 1,
       speaker: 'aimee',
       text: "Hi, I'm Aimee. What would you like help thinking through today?",
-      time: '',
+      time: '',  // Empty for SSR, set via useEffect after mount
     },
   ])
+  
   const [inputText, setInputText] = useState('')
+  
+  // Extraction state
   const [extraction, setExtraction] = useState<ExtractionData | null>(null)
   const [showCard, setShowCard] = useState(true)
   const [cardMinimized, setCardMinimized] = useState(false)
+  
+  // API state
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [safetyFlagged, setSafetyFlagged] = useState(false)
+  const [safetyMessage, setSafetyMessage] = useState('')
+  
+  // Success state
   const [saved, setSaved] = useState(false)
+  const [savedMemoryId, setSavedMemoryId] = useState<string | null>(null)
+  
+  // Source text for confirm
   const [sourceText, setSourceText] = useState('')
-
+  
+  // Message counter
+  // TTS state
+  const [ttsEnabled, setTtsEnabled] = useState(false)
+  const [ttsSupported, setTtsSupported] = useState(false)
+  
+  // STT state - now toggle mode
+  const [sttSupported, setSttSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [showMicHint, setShowMicHint] = useState(false)
+  
+  // Initialize TTS state from localStorage and browser support
+  useEffect(() => {
+    setTtsSupported(isTtsSupported())
+    setSttSupported(isSttSupported())
+    const saved = localStorage.getItem('feltabout-tts')
+    if (saved === 'true' && isTtsSupported()) {
+      setTtsEnabled(true)
+    }
+    // Show mic hint on first visit
+    if (isSttSupported() && !localStorage.getItem('feltabout-mic-hint-seen')) {
+      setShowMicHint(true)
+    }
+  }, [])
+  
+  // Get consistent time format that won't cause hydration mismatch
   const getTimeString = useCallback(() => {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }, [])
+  
+  // Set initial timestamp only after client mounts (SSR hydration safety)
+  useEffect(() => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        !msg.time ? { ...msg, time: getTimeString() } : msg
+      )
+    )
+  }, [getTimeString])
 
   useEffect(() => {
-    setMessages(prev => prev.map(msg => !msg.time ? { ...msg, time: getTimeString() } : msg))
-  }, [getTimeString])
+    const behavior = hasHydratedScrollRef.current ? 'smooth' : 'auto'
+    hasHydratedScrollRef.current = true
 
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior,
+        block: 'end',
+      })
+    })
+  }, [messages, loading, extraction, showCard, cardMinimized, saved])
+
+  // Re-focus input after AI response completes
+  useEffect(() => {
+    if (!loading && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
+  
   const addMessage = useCallback((speaker: 'aimee' | 'user', text: string) => {
-    const id = nextMessageId.current
-    nextMessageId.current += 1
-    setMessages(prev => [...prev, { id, speaker, text, time: getTimeString() }])
-  }, [getTimeString])
+    const id = nextMessageIdRef.current
+    nextMessageIdRef.current += 1
 
+    setMessages(prev => [
+      ...prev,
+      {
+        id,
+        speaker,
+        text,
+        time: getTimeString(),
+      },
+    ])
+  }, [getTimeString])
+  
   const handleSubmit = async () => {
     if (!inputText.trim() || loading || saving) return
-
+    
     const text = inputText.trim()
-    const context = buildConversationContext(messages)
-
+    const requestId = currentRequestIdRef.current + 1
+    currentRequestIdRef.current = requestId
     setInputText('')
-    setSourceText(text)
+    // Add user message
     addMessage('user', text)
-
+    
+    // Reset states
     setLoading(true)
     setError(null)
-    setExtraction(null)
     setSafetyFlagged(false)
+    setSafetyMessage('')
     setSaved(false)
-    setShowCard(true)
+    setSavedMemoryId(null)
+    setShowCard(false)
     setCardMinimized(false)
-
+    
     try {
-      const extractionResponse = await extractWithAimee(text)
+      // Build conversation context from recent messages (last 8)
+      const conversationContext = messages
+        .slice(-8)
+        .map((msg) => `${msg.speaker === 'user' ? 'User' : 'Aimee'}: ${msg.text}`)
+        .join('\n')
 
-      if (extractionResponse.safety_status === 'flagged') {
+      // 1. First: get a real conversational Aimee reply
+      const chatResponse = await chatWithAimee(text, conversationContext)
+      if (currentRequestIdRef.current !== requestId) return
+
+      addMessage('aimee', chatResponse.reply)
+      setLoading(false)
+
+      // Speak AI response if TTS is enabled
+      if (ttsEnabled && chatResponse.reply) {
+        stopSpeaking() // Stop any current speech first
+        speak(chatResponse.reply)
+      }
+
+      // Handle safety flagged from chat
+      if (chatResponse.safety_status === 'flagged') {
         setSafetyFlagged(true)
+        setSafetyMessage(chatResponse.reply)
         setShowCard(false)
-        addMessage('aimee', extractionResponse.suggested_response)
-        return
-      }
+      } else {
+        // 2. Second: quietly try extraction so the memory card can still work
+        try {
+          const extractionResponse = await extractWithAimee(text)
+          if (currentRequestIdRef.current !== requestId) return
 
-      if (extractionResponse.feelings.length > 0) {
-        setExtraction(apiToExtractionData(extractionResponse))
-      }
+          if (extractionResponse.safety_status === 'flagged') {
+            setSafetyFlagged(true)
+            setSafetyMessage(extractionResponse.suggested_response)
+            setShowCard(false)
+          } else if (extractionResponse.feelings.length > 0) {
+            const extractionData = apiToExtractionData(extractionResponse)
+            setExtraction(extractionData)
+            latestExtractionRef.current = extractionData
+            latestSourceTextRef.current = text
 
-      try {
-        const chatResponse = await chatWithAimee(text, context)
-        addMessage('aimee', chatResponse.reply)
-      } catch (chatErr) {
-        console.warn('Aimee chat unavailable, using local fallback:', chatErr)
-        addMessage('aimee', fallbackAimeeReply(text, messages))
+            if (chatResponse.should_offer_review) {
+              setSourceText(text)
+              setShowCard(true)
+              setCardMinimized(false)
+              addMessage('aimee', buildReviewPlayback(extractionData))
+            } else {
+              setShowCard(false)
+            }
+          } else if (chatResponse.should_offer_review && latestExtractionRef.current) {
+            setExtraction(latestExtractionRef.current)
+            setSourceText(latestSourceTextRef.current)
+            setShowCard(true)
+            setCardMinimized(false)
+            addMessage('aimee', buildReviewPlayback(latestExtractionRef.current))
+          } else if (chatResponse.should_offer_review) {
+            setShowCard(false)
+            addMessage('aimee', "I can save it once there's a clearer moment to hold onto. Give me one more specific piece if you want.")
+          } else {
+            setShowCard(false)
+          }
+        } catch (extractErr) {
+          if (currentRequestIdRef.current !== requestId) return
+          console.warn('Extraction failed, but chat succeeded:', extractErr)
+          if (chatResponse.should_offer_review && latestExtractionRef.current) {
+            setExtraction(latestExtractionRef.current)
+            setSourceText(latestSourceTextRef.current)
+            setShowCard(true)
+            setCardMinimized(false)
+            addMessage('aimee', buildReviewPlayback(latestExtractionRef.current))
+          } else if (chatResponse.should_offer_review) {
+            setShowCard(false)
+            addMessage('aimee', "I can save it once there's a clearer moment to hold onto. Give me one more specific piece if you want.")
+          } else {
+            setShowCard(false)
+          }
+        }
       }
     } catch (err) {
-      console.error('Aimee error:', err)
-      setError('Something went wrong. Please try again.')
-      addMessage('aimee', fallbackAimeeReply(text, messages))
+      if (currentRequestIdRef.current !== requestId) return
+      console.error('Aimee chat error:', err)
+      setError('Aimee had trouble responding. Please try again.')
+      addMessage('aimee', "I'm having trouble responding right now. Can you try again in a moment?")
     } finally {
-      setLoading(false)
+      if (currentRequestIdRef.current === requestId) {
+        setLoading(false)
+      }
     }
   }
-
+  
+  const handleConfirm = (data: ExtractionData) => {
+    // Edit mode - update local state
+    setExtraction(data)
+  }
+  
+  const handleEdit = (data: ExtractionData) => {
+    setExtraction(data)
+  }
+  
   const handleSaveMemory = async () => {
     if (!extraction || !sourceText || saving) return
-
+    
     setSaving(true)
     setError(null)
-
+    
     try {
       const confirmPayload = extractionToConfirm(extraction, sourceText)
-      await confirmAimeeExtraction(confirmPayload)
+      const response = await confirmAimeeExtraction(confirmPayload)
+      
       setSaved(true)
-      addMessage('aimee', 'Saved. Your reflection has been stored privately.')
+      setSavedMemoryId(response.memory_id)
+      
+      addMessage('aimee', "Saved! Your reflection has been stored privately.")
     } catch (err) {
       console.error('Save error:', err)
       setError('Failed to save. Please try again.')
-      addMessage('aimee', 'I had trouble saving that. Please try again in a moment.')
+      addMessage('aimee', "I had trouble saving that. Please try again in a moment.")
     } finally {
       setSaving(false)
     }
   }
-
+  
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
     }
   }
-
+  
+  // Toggle talk mode - click to start, click again to stop
+  const handleTalkToggle = async () => {
+    if (!sttSupported || loading || saving) return
+    
+    if (isRecording) {
+      // Stop recording
+      if (stopListeningRef.current) {
+        stopListeningRef.current()
+        stopListeningRef.current = null
+      }
+      setIsRecording(false)
+    } else {
+      // Start recording
+      setIsRecording(true)
+      
+      // Use continuous listening
+      stopListeningRef.current = startListening(
+        (transcript, isFinal) => {
+          if (isFinal) {
+            // Add final transcript to input
+            setInputText((prev) => {
+              const newText = (prev ? prev + ' ' : '') + transcript
+              return newText
+            })
+          }
+        },
+        (error) => {
+          console.warn('Speech recognition error:', error)
+          setIsRecording(false)
+          stopListeningRef.current = null
+        }
+      )
+    }
+  }
+  
+  const dismissMicHint = () => {
+    setShowMicHint(false)
+    localStorage.setItem('feltabout-mic-hint-seen', 'true')
+  }
+  
   const handleStartNew = () => {
     setExtraction(null)
+    latestExtractionRef.current = null
+    latestSourceTextRef.current = ''
     setSaved(false)
+    setSavedMemoryId(null)
     setSafetyFlagged(false)
+    setSafetyMessage('')
     setShowCard(false)
     setCardMinimized(false)
-    addMessage('aimee', "Ready when you are. What's on your mind?")
+    addMessage('aimee', "Ready when you are. What would you like help thinking through?")
   }
-
+  
   return (
-    <main className="aimee-page">
-      <header className="aimee-header">
-        <Link href="/" className="back-link">
-          <span className="back-arrow">←</span>
-          <img src="/logo.png" alt="Feltabout" className="header-logo" />
+    <main className={styles.page}>
+      {/* Header */}
+      <header className={styles.header}>
+        <Link href="/" className={styles.backLink}>
+          <span className={styles.backArrow}>←</span>
+          <img src="/logo.png" alt="Feltabout" className={styles.headerLogo} />
         </Link>
-        <div className="header-title-group">
-          <span className="guide-name">Aimee</span>
-          <span className="guide-status">Your reflection guide</span>
+        <div className={styles.titleGroup}>
+          <span className={styles.guideName}>Aimee</span>
+          <span className={styles.guideStatus}>Your reflection guide</span>
         </div>
-        <div className="header-spacer" />
+        <div className={styles.headerSpacer} />
+        {ttsSupported && (
+          <button
+            className={styles.ttsToggle}
+            onClick={() => {
+              if (ttsEnabled) {
+                stopSpeaking() // Stop speech when turning off
+                setTtsEnabled(false)
+                localStorage.setItem('feltabout-tts', 'false')
+              } else {
+                setTtsEnabled(true)
+                localStorage.setItem('feltabout-tts', 'true')
+              }
+            }}
+            title={ttsEnabled ? 'Turn voice responses off' : 'Turn voice responses on'}
+            aria-label={ttsEnabled ? 'Turn voice responses off' : 'Turn voice responses on'}
+          >
+            {ttsEnabled ? '🔊' : '🔇'}
+          </button>
+        )}
       </header>
 
-      <section className="chat-section">
-        <div className="messages-container">
-          {messages.map(msg => (
-            <div key={msg.id} className={`message ${msg.speaker}`}>
+      {/* Chat section */}
+      <section className={styles.chatSection}>
+        <div className={styles.messagesContainer}>
+          {messages.map((msg) => (
+            <div key={msg.id} className={`${styles.message} ${styles[msg.speaker]}`}>
               {msg.speaker === 'aimee' && (
-                <div className="msg-avatar"><span>A</span></div>
+                <div className={styles.msgAvatar}>
+                  <span>A</span>
+                </div>
               )}
-              <div className="msg-bubble">
-                <p className="msg-text">{msg.text}</p>
-                <span className="msg-time">{msg.time}</span>
+              <div className={styles.msgBubble}>
+                <p className={styles.msgText}>{msg.text}</p>
+                <span className={styles.msgTime}>{msg.time}</span>
               </div>
             </div>
           ))}
-
+          
+          {/* Loading indicator */}
           {loading && (
-            <div className="message aimee loading-message">
-              <div className="msg-avatar"><span>A</span></div>
-              <div className="msg-bubble">
-                <p className="msg-text loading-dots"><span>.</span><span>.</span><span>.</span></p>
+            <div className={`${styles.message} ${styles.aimee}`}>
+              <div className={styles.msgAvatar}>
+                <span>A</span>
+              </div>
+              <div className={styles.msgBubble}>
+                <p className={`${styles.msgText} ${styles.loadingDots}`}>
+                  <span>.</span><span>.</span><span>.</span>
+                </p>
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} className={styles.messagesEndAnchor} />
         </div>
 
+        {/* Success state */}
         {saved && (
-          <div className="success-container">
-            <div className="success-card">
-              <div className="success-icon">✨</div>
+          <div className={styles.successContainer}>
+            <div className={styles.successCard}>
+              <div className={styles.successIcon}>✨</div>
               <h3>Memory saved</h3>
               <p>Your reflection has been stored privately.</p>
-              <div className="success-actions">
-                <button className="btn-primary" onClick={() => router.push('/memories')}>View memories</button>
-                <button className="btn-secondary" onClick={handleStartNew}>New reflection</button>
+              <div className={styles.successActions}>
+                <button 
+                  className="btn-primary"
+                  onClick={() => router.push(`/memories`)}
+                >
+                  View memories
+                </button>
+                <button 
+                  className="btn-secondary"
+                  onClick={handleStartNew}
+                >
+                  New reflection
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {!saved && showCard && extraction && !cardMinimized && !safetyFlagged && (
-          <div className="extraction-container">
-            <ExtractionCard
-              extraction={extraction}
-              onConfirm={setExtraction}
-              onEdit={setExtraction}
-              onAddFeeling={() => console.log('Add feeling')}
-              onAddNeed={() => console.log('Add need')}
-              onSkipNeed={() => console.log('Skip need')}
-              onSaveMemory={handleSaveMemory}
-              onClose={() => setCardMinimized(true)}
-              saving={saving}
-            />
+        {/* Error display */}
+        {error && (
+          <div className={styles.errorBanner}>
+            <span>⚠️</span> {error}
+          </div>
+        )}
+      </section>
+
+      {!saved && showCard && extraction && !safetyFlagged && !cardMinimized && (
+        <div className={styles.floatingCardShell}>
+          <div className={styles.floatingCardBackdrop} onClick={() => setCardMinimized(true)} />
+          <div className={styles.floatingCardPanel}>
+            <div className={styles.extractionContainer}>
+              <ExtractionCard
+                extraction={extraction}
+                onConfirm={handleConfirm}
+                onEdit={handleEdit}
+                onAddFeeling={() => console.log('Add feeling')}
+                onAddNeed={() => console.log('Add need')}
+                onSkipNeed={() => console.log('Skip need')}
+                onSaveMemory={handleSaveMemory}
+                onClose={() => setCardMinimized(true)}
+                saving={saving}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Input area */}
+      <section className={styles.inputSection}>
+        {!saved && showCard && extraction && !safetyFlagged && cardMinimized && (
+          <div className={styles.composerCardZone}>
+            <button
+              className={styles.minimizedCardIndicator}
+              onClick={() => setCardMinimized(false)}
+            >
+              <div
+                className={styles.minimizedDot}
+                style={{ background: EMOTION_COLORS[extraction.primary_emotion] }}
+              />
+              <span>Aimee noticed: {extraction.feeling}</span>
+              <span className={styles.minimizedExpand}>Review</span>
+            </button>
           </div>
         )}
 
-        {!saved && showCard && extraction && cardMinimized && !safetyFlagged && (
-          <button className="minimized-card-indicator" onClick={() => setCardMinimized(false)}>
-            <div className="minimized-dot" style={{ background: EMOTION_COLORS[extraction.primary_emotion] }} />
-            <span>Aimee noticed: {extraction.feeling}</span>
-            <span className="minimized-expand">+</span>
-          </button>
-        )}
-
-        {error && <div className="error-banner"><span>⚠️</span> {error}</div>}
-      </section>
-
-      <section className="input-section">
-        <div className="input-area">
+        <div className={styles.inputArea}>
           <textarea
-            className="chat-input"
+            ref={inputRef}
+            className={styles.chatInput}
             placeholder="Tell Aimee what's on your mind..."
             value={inputText}
-            onChange={e => setInputText(e.target.value)}
+            onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
             disabled={loading || saving}
           />
-          <button className="send-btn" onClick={handleSubmit} disabled={!inputText.trim() || loading || saving}>
+          {sttSupported && (
+            <button
+              className={`${styles.talkBtn} ${isRecording ? styles.recording : ''}`}
+              onClick={handleTalkToggle}
+              disabled={loading || saving}
+              aria-label={isRecording ? 'Stop listening' : 'Start listening'}
+              title={isRecording ? 'Tap to stop listening' : 'Tap to start listening'}
+            >
+              {isRecording ? '⏹️' : '🎤'}
+            </button>
+          )}
+          {showMicHint && sttSupported && (
+            <div className={styles.micHint} onClick={dismissMicHint}>
+              <span>Tap the mic to dictate. Review before sending.</span>
+              <button className={styles.micHintClose} onClick={(e) => { e.stopPropagation(); dismissMicHint(); }} aria-label="Dismiss">×</button>
+            </div>
+          )}
+          <button
+            className={styles.sendBtn}
+            onClick={handleSubmit}
+            disabled={!inputText.trim() || loading || saving}
+          >
             {loading ? '...' : 'Send'}
           </button>
         </div>
-        <div className="input-footer">
-          <span className="privacy-note">🔒 Your feelings are private</span>
+        <div className={styles.inputFooter}>
+          <span className={styles.privacyNote}>🔒 Your feelings are private</span>
         </div>
       </section>
-
-      <style>{`
-        .aimee-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
-        .aimee-header { display: flex; align-items: center; gap: .75rem; padding: 1rem clamp(1.5rem, 5vw, 2rem); border-bottom: 1px solid var(--border-subtle); background: var(--card); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 10; }
-        .back-link { display: flex; align-items: center; gap: .65rem; text-decoration: none; flex-shrink: 0; }
-        .back-arrow { font-size: 1.25rem; color: var(--text-muted); font-weight: 300; }
-        .header-logo { display: block; height: clamp(32px, 2.7vw, 40px); width: auto; }
-        .header-title-group { display: flex; flex-direction: column; gap: .1rem; flex: 1; min-width: 0; }
-        .guide-name { font-size: 1rem; font-weight: 600; color: var(--text); }
-        .guide-status { font-size: .75rem; color: var(--text-quiet); }
-        .header-spacer { width: 60px; flex-shrink: 0; }
-        .chat-section { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem clamp(1.5rem, 5vw, 2rem); max-width: 720px; margin: 0 auto; width: 100%; }
-        .messages-container { display: flex; flex-direction: column; gap: 1.25rem; }
-        .message { display: flex; gap: .75rem; max-width: 85%; animation: messageIn .3s var(--ease-soft); }
-        @keyframes messageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .message.user { align-self: flex-end; flex-direction: row-reverse; }
-        .message.aimee { align-self: flex-start; }
-        .msg-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--gradient-core); color: white; display: flex; align-items: center; justify-content: center; font-size: .875rem; font-weight: 600; flex-shrink: 0; }
-        .msg-bubble { display: flex; flex-direction: column; gap: .25rem; }
-        .msg-text { padding: 1rem 1.25rem; border-radius: 20px; font-size: .95rem; line-height: 1.55; color: var(--text-soft); background: var(--card-solid); border: 1px solid var(--border-subtle); margin: 0; }
-        .message.user .msg-text { background: var(--accent-soft); border-color: var(--accent-border); color: var(--text); border-top-right-radius: 6px; }
-        .message.aimee .msg-text { border-top-left-radius: 6px; }
-        .msg-time { font-size: .7rem; color: var(--text-quiet); padding: 0 .5rem; }
-        .message.user .msg-time { text-align: right; }
-        .loading-dots span { animation: blink 1.4s infinite both; }
-        .loading-dots span:nth-child(2) { animation-delay: .2s; }
-        .loading-dots span:nth-child(3) { animation-delay: .4s; }
-        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
-        .error-banner { padding: .75rem 1rem; background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.3); border-radius: 12px; color: #FF6B6B; font-size: .875rem; text-align: center; }
-        .success-container, .extraction-container { animation: cardAppear .4s var(--ease-spring); }
-        @keyframes cardAppear { from { opacity: 0; transform: translateY(20px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .success-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 2rem; text-align: center; }
-        .success-icon { font-size: 3rem; margin-bottom: 1rem; }
-        .success-card h3 { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 0 0 .5rem; }
-        .success-card p { font-size: .9rem; color: var(--text-muted); margin: 0 0 1.5rem; }
-        .success-actions { display: flex; gap: .75rem; justify-content: center; }
-        .btn-primary, .btn-secondary { padding: .75rem 1.5rem; border-radius: 999px; font-size: .875rem; font-weight: 600; cursor: pointer; }
-        .btn-primary { background: var(--gradient-core); color: white; border: none; }
-        .btn-secondary { background: var(--card-solid); color: var(--text-soft); border: 1px solid var(--border); }
-        .minimized-card-indicator { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.25rem; background: var(--card); border: 1px solid var(--border); border-radius: 16px; cursor: pointer; transition: all var(--duration-fast) var(--ease-soft); width: 100%; max-width: 400px; margin: 0 auto; }
-        .minimized-card-indicator:hover { background: var(--card-solid); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-        .minimized-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-        .minimized-card-indicator span:nth-child(2) { flex: 1; font-size: .9rem; font-weight: 500; color: var(--text); text-transform: capitalize; }
-        .minimized-expand { font-size: 1.25rem; color: var(--text-muted); font-weight: 300; }
-        .input-section { padding: 1rem clamp(1.5rem, 5vw, 2rem); border-top: 1px solid var(--border-subtle); background: var(--card); backdrop-filter: blur(20px); }
-        .input-area { display: flex; gap: .75rem; align-items: flex-end; max-width: 720px; margin: 0 auto; }
-        .chat-input { flex: 1; min-height: 48px; max-height: 120px; padding: .875rem 1.25rem; border: 1px solid var(--border); border-radius: 20px; background: var(--card-solid); font-size: .95rem; color: var(--text); resize: none; outline: none; line-height: 1.5; transition: border-color var(--duration-fast) var(--ease-soft); }
-        .chat-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-        .chat-input::placeholder { color: var(--text-quiet); }
-        .send-btn { min-height: 48px; padding: 0 1.5rem; border: none; border-radius: 999px; background: var(--gradient-core); color: white; font-size: .875rem; font-weight: 600; cursor: pointer; box-shadow: 0 2px 12px rgba(51,214,200,.2); transition: all var(--duration-normal) var(--ease-soft); }
-        .send-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(51,214,200,.35); }
-        .send-btn:disabled { opacity: .4; cursor: not-allowed; }
-        .input-footer { max-width: 720px; margin: .75rem auto 0; text-align: center; }
-        .privacy-note { font-size: .75rem; color: var(--text-quiet); }
-        @media (max-width: 640px) { .message { max-width: 92%; } .msg-avatar { width: 32px; height: 32px; font-size: .8rem; } .success-actions { flex-direction: column; } }
-      `}</style>
     </main>
   )
 }

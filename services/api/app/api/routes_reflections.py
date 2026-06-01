@@ -10,10 +10,14 @@ Endpoints:
 - POST /reflections/{id}/generate - Generate a conversation plan
 """
 
+import logging
 import os
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.api.routes_auth import require_user
 from app.db.session import get_db
@@ -33,6 +37,7 @@ from app.services import (
     FacilitationService,
     ExtractionService,
 )
+from app.services.ai_router import get_provider_name, get_model_name, get_provider_api_key
 from app.services.safety_service import check_safety, build_crisis_response
 
 
@@ -161,14 +166,27 @@ async def generate_plan(
         return build_crisis_response(safety_result.severity)
     
     # ── Internal extraction stage ──────────────────────────────────────────────
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-    OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    provider_name = get_provider_name()
+    provider_model = get_model_name(provider_name)
+    provider_api_key = get_provider_api_key(provider_name)
     
     extraction = ExtractionService()
+    t0 = time.monotonic()
     analysis = await extraction.analyze_with_fallback(
         reflection=reflection_dict,
-        api_key=OPENAI_API_KEY if OPENAI_API_KEY else None,
-        model=OPENAI_MODEL,
+        api_key=provider_api_key or None,
+        model=provider_model,
+    )
+    extraction_ms = (time.monotonic() - t0) * 1000
+    logger.info(
+        "Extraction complete",
+        extra={
+            "reflection_id": reflection_id,
+            "user_id": user["sub"],
+            "provider": provider_name,
+            "model": provider_model,
+            "extraction_ms": round(extraction_ms, 1),
+        }
     )
     
     # Log memory candidate count
@@ -226,21 +244,39 @@ async def generate_plan(
     # ── Facilitation (Facilitation Engine) ───────────────────────────────────
     facilitation = FacilitationService()
     
-    if OPENAI_API_KEY:
-        plan_data = await facilitation.generate_with_analysis(
-            reflection=reflection_dict,
-            analysis=analysis_dict,
-            api_key=OPENAI_API_KEY,
-            model=OPENAI_MODEL,
-        )
+    t1 = time.monotonic()
+    if provider_api_key:
+        try:
+            plan_data = await facilitation.generate_with_analysis(
+                reflection=reflection_dict,
+                analysis=analysis_dict,
+                api_key=provider_api_key,
+                model=provider_model,
+            )
+        except Exception:
+            facilitation_ms = (time.monotonic() - t1) * 1000
+            logger.exception(
+                "Facilitation failed",
+                extra={
+                    "reflection_id": reflection_id,
+                    "user_id": user["sub"],
+                    "provider": provider_name,
+                    "model": provider_model,
+                    "facilitation_ms": round(facilitation_ms, 1),
+                }
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="AI generation temporarily unavailable. Please try again.",
+            )
         metadata = {
             "prompt_version": "facilitation_mvp2_v1",
             "prompt_version_extraction": "extraction_v1",
-            "extraction_model": OPENAI_MODEL,
+            "extraction_model": provider_model,
             "analysis_confidence": 0.85,
             "memory_candidate_count": memory_candidate_count,
-            "model_provider": "openai",
-            "model_name": OPENAI_MODEL,
+            "model_provider": provider_name,
+            "model_name": provider_model,
             "generation_mode": "staged_extraction",
             "safety_version": "safety_rules_v1",
         }
@@ -257,9 +293,50 @@ async def generate_plan(
             "generation_mode": "staged_extraction",
             "safety_version": "safety_rules_v1",
         }
+    facilitation_ms = (time.monotonic() - t1) * 1000
+    logger.info(
+        "Facilitation complete",
+        extra={
+            "reflection_id": reflection_id,
+            "user_id": user["sub"],
+            "provider": provider_name,
+            "model": provider_model,
+            "facilitation_ms": round(facilitation_ms, 1),
+        }
+    )
     
     # Save output with generation metadata
-    output = await ReflectionService.save_output(db, reflection, plan_data, metadata)
+    t2 = time.monotonic()
+    try:
+        output = await ReflectionService.save_output(db, reflection, plan_data, metadata)
+    except Exception:
+        db_save_ms = (time.monotonic() - t2) * 1000
+        logger.exception(
+            "save_output failed",
+            extra={
+                "reflection_id": reflection_id,
+                "user_id": user["sub"],
+                "provider": provider_name,
+                "model": provider_model,
+                "db_save_ms": round(db_save_ms, 1),
+            }
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to save conversation plan. Please try again.",
+        )
+    db_save_ms = (time.monotonic() - t2) * 1000
+    logger.info(
+        "Output saved",
+        extra={
+            "reflection_id": reflection_id,
+            "user_id": user["sub"],
+            "provider": provider_name,
+            "model": provider_model,
+            "db_save_ms": round(db_save_ms, 1),
+            "total_ms": round(extraction_ms + facilitation_ms + db_save_ms, 1),
+        }
+    )
     
     # ── FeelFlow event logging ──────────────────────────────────────────────────
     from app.services.feelflow_service import FeelFlowService

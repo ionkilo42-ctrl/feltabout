@@ -7,6 +7,8 @@ from app.models.core_memory import CoreMemory, FeelFlowEvent
 from app.models.magic_link_token import MagicLinkToken
 from app.models.conversation_space import ConversationSpace
 from app.models.participant import Participant
+from app.models.session_message import SessionMessage
+from app.models.guide_session import GuideSession
 
 __all__ = [
     "Base",
@@ -20,4 +22,6 @@ __all__ = [
     "MagicLinkToken",
     "ConversationSpace",
     "Participant",
+    "SessionMessage",
+    "GuideSession",
 ]

@@ -18,7 +18,7 @@ import os
 from typing import Optional
 
 from app.schemas.emotional_analysis import InternalAnalysis
-from app.services.ai_router import get_ai_router, AIRouter
+from app.services.ai_router import get_ai_router, AIRouter, provider_has_key
 from app.prompts.extraction_prompt import (
     get_extraction_messages,
     parse_extraction_json,
@@ -173,7 +173,7 @@ class ExtractionService:
         Returns:
             InternalAnalysis object with extracted emotional intelligence
         """
-        if api_key and OPENAI_API_KEY or OPENAI_API_KEY:
+        if api_key or provider_has_key():
             try:
                 router = self.ai_router
                 if api_key:

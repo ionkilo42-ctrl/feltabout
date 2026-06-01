@@ -134,3 +134,32 @@ class ConfirmResponse(BaseModel):
     memory_id: str = Field(..., description="ID of created memory")
     feelings_count: int = Field(..., description="Number of feelings saved")
     status: str = Field(default="saved", description="Save status")
+
+
+# ─── Chat Request/Response ──────────────────────────────────────────────────────
+
+class ChatRequest(BaseModel):
+    """Request for free-form conversational chat with Aimee."""
+    model_config = ConfigDict(extra="forbid")
+    
+    message: str = Field(..., min_length=1, description="User's message")
+    conversation_context: Optional[str] = Field(
+        default=None,
+        description="Recent conversation history for context"
+    )
+    participant_context: Optional[str] = Field(
+        default=None,
+        description="Information about session participants for shared session context"
+    )
+
+
+class ChatResponse(BaseModel):
+    """Response from Aimee conversational chat."""
+    model_config = ConfigDict(extra="forbid")
+    
+    reply: str = Field(..., description="Aimee's conversational reply")
+    safety_status: Literal["safe", "flagged"] = Field(default="safe", description="Safety check result")
+    should_offer_review: bool = Field(
+        default=False,
+        description="True when the user appears done and the UI should offer review/save",
+    )

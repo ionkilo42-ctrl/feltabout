@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { apiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/sessionStore'
+import styles from './LibraryPage.module.css'
 
 interface LibraryItem {
-  type: 'reflection' | 'conversation'
+  type: 'reflection' | 'memory' | 'conversation'
   id: string
   name: string
   created_at: string
@@ -60,6 +61,9 @@ export default function LibraryPage() {
       })
   }, [token])
 
+  const isReflectionLike = (item: LibraryItem) =>
+    item.type === 'reflection' || item.type === 'memory'
+
   // Fetch patterns (separate endpoint, shows only when ≥3 reflections)
   useEffect(() => {
     if (!token) return
@@ -77,10 +81,14 @@ export default function LibraryPage() {
       .catch(() => setPatternsLoading(false))
   }, [token])
 
-  const filtered = filter === 'all' ? items : items.filter(i => i.type === filter)
+  const filtered = filter === 'all'
+    ? items
+    : filter === 'reflection'
+      ? items.filter(isReflectionLike)
+      : items.filter(i => i.type === filter)
 
   const statusLabel = (type: string, status: string) => {
-    if (type === 'reflection') {
+    if (type === 'reflection' || type === 'memory') {
       const map: Record<string, string> = { draft: 'Draft', completed: 'Complete', archived: 'Archived' }
       return map[status] || status
     }
@@ -97,32 +105,39 @@ export default function LibraryPage() {
   }
 
   return (
-    <main className="app">
-      <header className="app-header">
-        <div className="header-left">
-          <Link href="/" className="back-link">← Back</Link>
-          <h1>Library</h1>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <Link href="/" className={styles.brandLockup} aria-label="Feltabout home">
+            <img className={styles.brandMark} src="/logo.png" alt="Feltabout" />
+          </Link>
+          <div className={styles.pageTitleGroup}>
+            <Link href="/" className={styles.backLink}>← Back</Link>
+            <h1>Library</h1>
+          </div>
         </div>
-        <div className="header-actions">
+        <div className={styles.headerActions}>
           <Link href="/session" className="btn-primary">
             New reflection
           </Link>
         </div>
       </header>
 
-      <div className="library-container">
+      <div className={styles.container}>
         {/* Filter tabs */}
-        <div className="filter-bar">
+        <div className={styles.filterBar}>
           {(['all', 'reflection', 'conversation'] as Filter[]).map(f => (
             <button
               key={f}
-              className={`filter-btn ${filter === f ? 'active' : ''}`}
+              className={`${styles.filterBtn} ${filter === f ? styles.active : ''}`}
               onClick={() => setFilter(f)}
             >
               {f === 'all' ? 'All' : f === 'reflection' ? 'Reflections' : 'Conversations'}
               {f !== 'all' && (
-                <span className="filter-count">
-                  {items.filter(i => i.type === f).length}
+                <span className={styles.filterCount}>
+                  {f === 'reflection'
+                    ? items.filter(isReflectionLike).length
+                    : items.filter(i => i.type === f).length}
                 </span>
               )}
             </button>
@@ -131,23 +146,23 @@ export default function LibraryPage() {
 
         {/* Patterns section */}
         {(patterns.length > 0 || patternsLoading) && (
-          <div className="patterns-section">
-            <div className="patterns-header">
+          <div className={styles.patternsSection}>
+            <div className={styles.patternsHeader}>
               <h3>Patterns you may notice</h3>
-              <span className="patterns-privacy">Only you can see these patterns.</span>
+              <span className={styles.patternsPrivacy}>Only you can see these patterns.</span>
             </div>
 
             {patternsLoading ? (
-              <div className="patterns-loading">
-                <div className="spinner-small" />
+              <div className={styles.patternsLoading}>
+                <div className={styles.spinnerSmall} />
               </div>
             ) : (
-              <div className="patterns-list">
+              <div className={styles.patternsList}>
                 {patterns.map((p, i) => (
-                  <div key={i} className={`pattern-card pattern-${p.confidence}`}>
-                    <div className="pattern-insight">{p.insight}</div>
+                  <div key={i} className={`${styles.patternCard} ${styles[`pattern${p.confidence.charAt(0).toUpperCase() + p.confidence.slice(1)}`]}`}>
+                    <div className={styles.patternInsight}>{p.insight}</div>
                     {p.confidence === 'low' && (
-                      <div className="pattern-tentative">This may be showing up…</div>
+                      <div className={styles.patternTentative}>This may be showing up…</div>
                     )}
                   </div>
                 ))}
@@ -157,23 +172,23 @@ export default function LibraryPage() {
         )}
 
         {patterns.length === 0 && !patternsLoading && (
-          <div className="patterns-empty">
+          <div className={styles.patternsEmpty}>
             <p>As you save more reflections, Feltabout can help surface recurring themes gently.</p>
-            <span className="patterns-privacy-note">Only you can see these patterns.</span>
+            <span className={styles.patternsPrivacyNote}>Only you can see these patterns.</span>
           </div>
         )}
 
         {/* Content */}
         {loading && (
-          <div className="library-loading">
-            <div className="spinner" />
+          <div className={styles.loading}>
+            <div className={styles.spinner} />
             <p>Loading your library...</p>
           </div>
         )}
 
         {error && (
-          <div className="library-empty">
-            <p className="library-error">{error}</p>
+          <div className={styles.empty}>
+            <p className={styles.libraryError}>{error}</p>
             {error.includes('sign in') && (
               <Link href="/login" className="btn-primary">Sign in</Link>
             )}
@@ -181,8 +196,8 @@ export default function LibraryPage() {
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="library-empty">
-            <div className="empty-icon">
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}>
               {filter === 'all' ? '📚' : filter === 'reflection' ? '📝' : '💬'}
             </div>
             <h2>Nothing here yet</h2>
@@ -198,29 +213,38 @@ export default function LibraryPage() {
         )}
 
         {!loading && !error && filtered.length > 0 && (
-          <div className="library-list">
+          <div className={styles.list}>
             {filtered.map(item => (
               <Link
                 key={item.id}
-                href={item.type === 'reflection' ? `/reflections/${item.id}` : `/session`}
-                className="library-card"
+                href={
+                  item.type === 'memory'
+                    ? `/memories/${item.id}`
+                    : item.type === 'reflection'
+                      ? `/reflections/${item.id}`
+                      : `/session`
+                }
+                className={styles.card}
               >
-                <div className="card-icon">
-                  {item.type === 'reflection' ? '📝' : '💬'}
+                <div className={styles.cardIcon}>
+                  {item.type === 'conversation' ? '💬' : '📝'}
                 </div>
-                <div className="card-body">
-                  <div className="card-name">{item.name}</div>
-                  <div className="card-meta">
-                    <span className="card-date">{formatDate(item.created_at)}</span>
+                <div className={styles.cardBody}>
+                  <div className={styles.cardName}>{item.name}</div>
+                  {item.subtitle && (
+                    <div className={styles.cardSubtitle}>{item.subtitle}</div>
+                  )}
+                  <div className={styles.cardMeta}>
+                    <span className={styles.cardDate}>{formatDate(item.created_at)}</span>
                     {item.type === 'conversation' && (
-                      <span className="card-participants">
+                      <span className={styles.cardParticipants}>
                         {item.participant_count} {item.participant_count === 1 ? 'person' : 'people'}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="card-right">
-                  <span className={`status-badge status-${item.status}`}>
+                <div className={styles.cardRight}>
+                  <span className={`${styles.statusBadge} ${styles[`status${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`]}`}>
                     {statusLabel(item.type, item.status)}
                   </span>
                 </div>
@@ -229,328 +253,6 @@ export default function LibraryPage() {
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        .library-container {
-          max-width: 640px;
-          margin: 0 auto;
-          padding: 24px 16px;
-        }
-
-        .filter-bar {
-          display: flex;
-          gap: 4px;
-          margin-bottom: 24px;
-          border-bottom: 1px solid var(--color-border);
-          padding-bottom: 12px;
-        }
-
-        .filter-btn {
-          padding: 6px 14px;
-          border-radius: 20px;
-          border: none;
-          background: transparent;
-          color: var(--color-text-secondary, #6b7280);
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .filter-btn:hover {
-          background: var(--color-bg-secondary, #f9fafb);
-        }
-
-        .filter-btn.active {
-          background: var(--color-primary, #e07a5f);
-          color: white;
-        }
-
-        .filter-count {
-          font-size: 12px;
-          opacity: 0.8;
-        }
-
-        .library-loading {
-          text-align: center;
-          padding: 60px 0;
-          color: var(--color-text-secondary, #6b7280);
-        }
-
-        .library-loading .spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid var(--color-border, #e5e7eb);
-          border-top-color: var(--color-primary, #e07a5f);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-          margin: 0 auto 12px;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .library-empty {
-          text-align: center;
-          padding: 60px 0;
-        }
-
-        .empty-icon {
-          font-size: 48px;
-          margin-bottom: 16px;
-        }
-
-        .library-empty h2 {
-          font-size: 20px;
-          font-weight: 600;
-          color: var(--color-text-primary, #111827);
-          margin: 0 0 8px;
-        }
-
-        .library-empty p {
-          color: var(--color-text-secondary, #6b7280);
-          margin: 0 0 24px;
-          line-height: 1.5;
-        }
-
-        .library-error {
-          color: #dc2626;
-          margin-bottom: 16px;
-        }
-
-        .library-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .library-card {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 16px;
-          background: white;
-          border-radius: 12px;
-          border: 1px solid var(--color-border, #e5e7eb);
-          text-decoration: none;
-          transition: all 0.15s ease;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        }
-
-        .library-card:hover {
-          border-color: var(--color-primary, #e07a5f);
-          box-shadow: 0 4px 12px rgba(224, 122, 95, 0.1);
-          transform: translateY(-1px);
-        }
-
-        .card-icon {
-          font-size: 24px;
-          flex-shrink: 0;
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--color-bg-secondary, #f9fafb);
-          border-radius: 10px;
-        }
-
-        .card-body {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .card-name {
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--color-text-primary, #111827);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          margin-bottom: 4px;
-        }
-
-        .card-meta {
-          display: flex;
-          gap: 12px;
-          font-size: 12px;
-          color: var(--color-text-secondary, #6b7280);
-        }
-
-        .card-participants {
-          opacity: 0.8;
-        }
-
-        .card-right {
-          flex-shrink: 0;
-        }
-
-        .status-badge {
-          font-size: 11px;
-          font-weight: 500;
-          padding: 3px 9px;
-          border-radius: 12px;
-          text-transform: capitalize;
-        }
-
-        .status-draft { background: #fef3c7; color: #92400e; }
-        .status-completed { background: #d1fae5; color: #065f46; }
-        .status-archived { background: #f3f4f6; color: #6b7280; }
-        .status-pending { background: #e0e7ff; color: #3730a3; }
-        .status-active { background: #d1fae5; color: #065f46; }
-        .status-complete { background: #f3f4f6; color: #6b7280; }
-
-        .header-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn-primary {
-          display: inline-flex;
-          align-items: center;
-          padding: 8px 16px;
-          background: var(--color-primary, #e07a5f);
-          color: white;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          text-decoration: none;
-          transition: background 0.15s;
-          border: none;
-          cursor: pointer;
-        }
-
-        .btn-primary:hover {
-          background: var(--color-primary-dark, #c9603f);
-        }
-
-        .btn-secondary {
-          display: inline-flex;
-          align-items: center;
-          padding: 8px 16px;
-          background: white;
-          color: var(--color-primary, #e07a5f);
-          border: 1px solid var(--color-primary, #e07a5f);
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          text-decoration: none;
-          transition: all 0.15s;
-        }
-
-        .btn-secondary:hover {
-          background: var(--color-bg-secondary, #f9fafb);
-        }
-
-        /* ── Patterns section ───────────────────────────────────────────── */
-        .patterns-section {
-          background: white;
-          border: 1px solid var(--color-border, #e5e7eb);
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 24px;
-        }
-
-        .patterns-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
-        }
-
-        .patterns-header h3 {
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--color-text-primary, #111827);
-          margin: 0;
-        }
-
-        .patterns-privacy {
-          font-size: 12px;
-          color: var(--color-text-secondary, #6b7280);
-          font-style: italic;
-        }
-
-        .patterns-loading {
-          display: flex;
-          justify-content: center;
-          padding: 12px 0;
-        }
-
-        .spinner-small {
-          width: 20px;
-          height: 20px;
-          border: 2px solid var(--color-border, #e5e7eb);
-          border-top-color: var(--color-primary, #e07a5f);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        .patterns-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .pattern-card {
-          padding: 12px 16px;
-          border-radius: 8px;
-          border-left: 3px solid transparent;
-        }
-
-        .pattern-high {
-          background: #f0fdf4;
-          border-left-color: #16a34a;
-        }
-
-        .pattern-medium {
-          background: #fefce8;
-          border-left-color: #ca8a04;
-        }
-
-        .pattern-low {
-          background: #f9fafb;
-          border-left-color: #d1d5db;
-        }
-
-        .pattern-insight {
-          font-size: 14px;
-          color: var(--color-text-primary, #111827);
-          line-height: 1.5;
-        }
-
-        .pattern-tentative {
-          font-size: 12px;
-          color: var(--color-text-secondary, #6b7280);
-          margin-top: 4px;
-          font-style: italic;
-        }
-
-        .patterns-empty {
-          background: white;
-          border: 1px dashed var(--color-border, #e5e7eb);
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 24px;
-          text-align: center;
-        }
-
-        .patterns-empty p {
-          font-size: 13px;
-          color: var(--color-text-secondary, #6b7280);
-          margin: 0 0 8px;
-          line-height: 1.5;
-        }
-
-        .patterns-privacy-note {
-          font-size: 11px;
-          color: var(--color-text-secondary, #6b7280);
-          font-style: italic;
-        }
-      `}</style>
     </main>
   )
 }

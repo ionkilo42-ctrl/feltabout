@@ -24,13 +24,20 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    espeak-ng \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Piper TTS
+RUN pip install --no-cache-dir piper-tts
 
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY . .
+
+# Copy Piper voice models (bundled for production)
+COPY models/piper/ /app/models/piper/
 
 # Create non-root user for security
 RUN useradd -m -r -u 1000 appuser && chown -R appuser:appuser /app

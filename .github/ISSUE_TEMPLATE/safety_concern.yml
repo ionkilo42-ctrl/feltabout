@@ -1,0 +1,46 @@
+name: Safety concern
+description: Report a product-safety concern, refusal gap, or harmful output path
+title: "[Safety] "
+labels:
+  - safety
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for non-sensitive safety concerns such as harmful prompt outputs, coercive suggestions, abuse-handling failures, or misleading product language.
+
+        If the report includes sensitive exploit details or private data exposure, follow SECURITY.md instead of posting everything publicly.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Concern type
+      options:
+        - harmful generation
+        - coercion/manipulation gap
+        - crisis or abuse routing gap
+        - misleading clinical framing
+        - privacy or data-handling concern
+        - documentation or copy issue
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and why is it unsafe?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction details
+      description: Include minimal steps, prompts, routes, or files. Omit sensitive secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Safer expected behavior
+      description: What should the system have done instead?
+    validations:
+      required: true

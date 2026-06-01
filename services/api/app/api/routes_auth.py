@@ -11,6 +11,7 @@ Endpoints:
 import os
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -51,6 +52,14 @@ class LoginRequest(BaseModel):
 
 class UpdateNameRequest(BaseModel):
     name: str
+
+
+class SocialLoginRequest(BaseModel):
+    provider: str
+    email: EmailStr
+    name: str
+    provider_user_id: str
+    avatar_url: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -102,6 +111,7 @@ async def get_current_user(
 
 async def require_user(
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Require authenticated user, raise 401 if not (dev mode returns dev user when auth disabled)."""
     USE_AUTH = os.environ.get("USE_AUTH", "false") == "true"
@@ -111,8 +121,73 @@ async def require_user(
 
     # Dev mode: return dev user when auth is disabled
     if not current_user:
-        return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User"}
+        return {"sub": "dev-user-001", "email": "dev@feltabout.local", "name": "Dev User", "is_admin": True}
 
+    return current_user
+
+
+def _truthy(value: str | None) -> bool:
+    """Check if a value is truthy (matches config_validation.py logic)."""
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_production_like() -> bool:
+    """
+    Detect production-like environment.
+    
+    Matches config_validation.py logic: triggered by APP_ENV=production|staging
+    or USE_AUTH=true (auth mode implies production-like deployment).
+    """
+    app_env = (
+        os.environ.get("APP_ENV")
+        or os.environ.get("ENVIRONMENT")
+        or os.environ.get("ENV")
+        or "development"
+    ).strip().lower()
+    return app_env in {"prod", "production", "staging"} or _truthy(os.environ.get("USE_AUTH"))
+
+
+def check_v2_access():
+    """Check if v2 routes are allowed in current environment.
+    
+    V2 routes are disabled by default in production-like environments.
+    Set ALLOW_V2=true to explicitly enable them.
+    """
+    allow_v2 = _truthy(os.environ.get("ALLOW_V2"))
+    if is_production_like() and not allow_v2:
+        raise HTTPException(
+            status_code=403,
+            detail="V2 routes are not enabled in production. Set ALLOW_V2=true to enable."
+        )
+
+
+async def require_admin(
+    current_user: dict = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Require admin user. Checks is_admin flag in database.
+    
+    Dev mode: dev-user-001 is automatically an admin.
+    Production: Must have is_admin=True in users table.
+    """
+    # Dev mode shortcut
+    if current_user.get("sub") == "dev-user-001":
+        return current_user
+    
+    # Check database for admin flag
+    from app.models.user import User
+    result = await db.execute(
+        select(User).where(User.id == current_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+    
     return current_user
 
 
@@ -254,6 +329,40 @@ async def login(
 
     if error:
         raise HTTPException(status_code=401, detail=error)
+
+    # Create session token
+    session_token = create_session_token(user.id, user.email, user.display_name)
+
+    return AuthResponse(
+        token=session_token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.display_name,
+        ),
+    )
+
+
+@router.post("/social-login", response_model=AuthResponse)
+async def social_login(
+    data: SocialLoginRequest,
+    auth: AuthService = Depends(get_auth_service),
+):
+    """
+    Handle social login (Google, Facebook, etc.).
+    
+    Finds or creates user by email, returns Feltabout session token.
+    For MVP, links by verified email only (no provider_user_id tracking yet).
+    """
+    # Find or create user by email (reuses magic-link logic)
+    user = await auth.social_login(
+        email=data.email,
+        name=data.name,
+        provider=data.provider,
+    )
+
+    if not user:
+        raise HTTPException(status_code=500, detail="Failed to create or find user")
 
     # Create session token
     session_token = create_session_token(user.id, user.email, user.display_name)

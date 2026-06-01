@@ -35,3 +35,10 @@ __pycache__/
 # Logs and OS/editor files
 *.log
 .DS_Store
+
+# Local ngrok runtime artifacts
+output/ngrok/
+
+# Piper voice models (large binary files)
+services/api/models/piper/*.onnx
+services/api/models/piper/*.onnx.json

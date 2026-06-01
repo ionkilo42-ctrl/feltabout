@@ -3,162 +3,152 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { apiUrl, wsUrl } from '@/lib/api'
+import { apiUrl } from '@/lib/api'
+import { useParticipantStore } from '@/store/sessionStore'
+import { SessionEntryCard } from '@/components/ui/SessionEntryCard'
+import styles from './JoinPage.module.css'
 
 export default function JoinPage() {
   const params = useParams()
   const router = useRouter()
   const token = params.token as string
 
-  const [status, setStatus] = useState<'verifying' | 'ready' | 'joining' | 'error' | 'full'>('verifying')
+  const setParticipant = useParticipantStore((s) => s.setParticipant)
+
   const [isJoining, setIsJoining] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [spaceName, setSpaceName] = useState<string | null>(null)
-  const [spaceId, setSpaceId] = useState<string | null>(null)
-  const [displayName, setDisplayName] = useState('')
-  const [nameError, setNameError] = useState('')
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error')
-      setErrorMessage('No invite token provided.')
-      return
+    const validateToken = async () => {
+      try {
+        const verifyUrl = apiUrl(`/conversation-spaces/verify-invite/${encodeURIComponent(token)}`)
+        
+        const res = await fetch(verifyUrl)
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            setError('This invite link is invalid or has expired.')
+          } else {
+            setError('Failed to validate invite link.')
+          }
+          setIsLoading(false)
+          return
+        }
+
+        const data = await res.json()
+        setSpaceName(data.space_name || 'Shared Session')
+        setIsLoading(false)
+      } catch (err) {
+        setError('Failed to connect. Please check your connection and try again.')
+        setIsLoading(false)
+      }
     }
 
-    // Verify the invite token
-    fetch(apiUrl(`/conversation-spaces/verify-invite/${encodeURIComponent(token)}`))
-      .then(res => res.json())
-      .then(data => {
-        if (!data.valid) {
-          setStatus('error')
-          setErrorMessage('This invite link has expired or is invalid.')
-          return
-        }
-        if (data.is_full) {
-          setStatus('full')
-          setErrorMessage('This conversation space is already full.')
-          return
-        }
-        setSpaceName(data.space_name)
-        setSpaceId(data.space_id)
-        setStatus('ready')
-      })
-      .catch(() => {
-        setStatus('error')
-        setErrorMessage('Connection error — is the backend running?')
-      })
+    validateToken()
   }, [token])
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!displayName.trim()) {
-      setNameError('Please enter your name')
-      return
-    }
-    if (!spaceId) return
-
-    setStatus('joining')
+  const handleJoin = async (name: string) => {
     setIsJoining(true)
-    setNameError('')
+    setError(null)
 
     try {
-      const res = await fetch(apiUrl(`/conversation-spaces/${spaceId}/join`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: displayName.trim() }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Failed to join')
+      const verifyUrl = apiUrl(`/conversation-spaces/verify-invite/${encodeURIComponent(token)}`)
+      const verifyRes = await fetch(verifyUrl)
+      
+      if (!verifyRes.ok) {
+        throw new Error('This invite link is invalid or has expired.')
       }
 
-      const data = await res.json()
+      const verifyData = await verifyRes.json()
+      const spaceId = verifyData.space_id
+
+      if (!spaceId) {
+        throw new Error('Could not find the session associated with this invite.')
+      }
+
+      const joinUrl = apiUrl(`/conversation-spaces/${spaceId}/join`)
       
-      // Redirect to session with websocket_session_id
-      // We need to pass the session info and connect
-      // Store in sessionStorage to persist across the redirect
-      sessionStorage.setItem('feltabout_joining', JSON.stringify({
-        websocket_session_id: data.websocket_session_id,
-        participant_id: data.participant_id,
-        display_name: data.display_name,
-        space_id: spaceId,
-        ws_access_token: data.ws_access_token,
-      }))
-      
-      // Navigate to session page
-      router.push('/session')
+      const joinRes = await fetch(joinUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: name }),
+      })
+
+      if (!joinRes.ok) {
+        const errorData = await joinRes.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to join session')
+      }
+
+      const data = await joinRes.json()
+
+      localStorage.setItem('current_space_id', spaceId)
+      localStorage.setItem('invite_token', token)
+
+      setParticipant({
+        participantId: data.participant_id || 'guest',
+        displayName: name,
+        isOwner: false,
+        spaceId,
+        joinedAt: new Date().toISOString(),
+      })
+
+      router.push(`/session/${spaceId}`)
     } catch (err) {
-      setStatus('ready')
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to join conversation')
+      setError(err instanceof Error ? err.message : 'Failed to join session')
+      setIsJoining(false)
     }
   }
 
-  return (
-    <main className="app">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <Link href="/">
-            <img className="brand-mark" src="/logo.png" alt="Feltabout" />
-          </Link>
-        </div>
-      </header>
-
-      <div className="session-setup" style={{ maxWidth: 480, margin: '0 auto' }}>
-        {status === 'verifying' && (
-          <div className="join-card">
-            <div className="spinner"></div>
-            <p>Verifying your invite...</p>
-          </div>
-        )}
-
-        {status === 'ready' && (
-          <div className="join-card">
-            <div className="invite-icon">🔒</div>
-            <h2>Conversation invite</h2>
-            <div className="mvp-notice">
-              <p><strong>This feature is not yet available in MVP 1.</strong></p>
-              <p>MVP 1 focuses on individual reflection and communication preparation.</p>
+  if (isLoading) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.loading}>
+            <div className={styles.spinner}>
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
-            {spaceName && (
-              <p className="space-name-label">Space: "{spaceName}"</p>
-            )}
-            <p className="join-description">
-              Ready to start your own reflection?
-            </p>
-            <Link href="/session" className="btn-primary">
-              Begin reflection
+            <p className={styles.loadingText}>Validating invite...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (error && !spaceName) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.errorCard}>
+            <span className={styles.errorIcon}>🔗</span>
+            <h2 className={styles.errorTitle}>Invalid invite</h2>
+            <p className={styles.errorMessage}>{error}</p>
+            <Link href="/" className={styles.errorButton}>
+              Go to home
             </Link>
-            <button className="secondary" onClick={() => router.push('/')}>
-              Go to homepage
-            </button>
           </div>
-        )}
+        </div>
+      </main>
+    )
+  }
 
-        {status === 'error' && (
-          <div className="join-card error">
-            <div className="error-icon">✗</div>
-            <h2>Invite unavailable</h2>
-            <p>{errorMessage}</p>
-            <button className="secondary" onClick={() => router.push('/')}>
-              Go to homepage
-            </button>
-          </div>
-        )}
+  return (
+    <main className={styles.page}>
+      <div className={styles.container}>
+        <Link href="/" className={styles.backLink}>
+          ← Back to home
+        </Link>
 
-        {status === 'full' && (
-          <div className="join-card error">
-            <div className="error-icon">✗</div>
-            <h2>Conversation full</h2>
-            <p>{errorMessage}</p>
-            <p className="hint">
-              The host can create a new invite link if needed.
-            </p>
-            <button className="secondary" onClick={() => router.push('/')}>
-              Go to homepage
-            </button>
-          </div>
-        )}
+        <SessionEntryCard
+          mode="join"
+          sessionName={spaceName || undefined}
+          onSubmit={handleJoin}
+          isLoading={isJoining}
+          error={error}
+        />
       </div>
     </main>
   )

@@ -37,6 +37,8 @@ REFLECTION_SENSITIVE_FIELDS = [
 
 # ReflectionOutput fields that contain generated personal guidance
 OUTPUT_SENSITIVE_FIELDS = [
+    # Primary output: one clear thing to say — most important field, must be encrypted
+    "simple_opener",
     "emotional_summary",
     "needs_summary",
     "assumptions",
@@ -307,6 +309,10 @@ class ReflectionService:
         
         await db.commit()
         await db.refresh(output)
+        
+        # Decrypt output fields before returning so API response is readable
+        _decrypt_output(output)
+        
         return output
     
     @staticmethod

@@ -1,0 +1,530 @@
+/* ═══════════════════════════════════════════════════════════
+   AIMEE PAGE - Reflection Guide Chat Interface
+   ═══════════════════════════════════════════════════════════ */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem clamp(1.5rem, 5vw, 2rem);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.backLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.backArrow {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.headerLogo {
+  height: 36px;
+  width: auto;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.guideName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guideStatus {
+  font-size: 0.75rem;
+  color: var(--text-quiet);
+}
+
+.headerSpacer {
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.ttsToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-solid);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-soft);
+  flex-shrink: 0;
+}
+
+.ttsToggle:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-border);
+}
+
+/* ── Chat Section ─────────────────────────────────────────── */
+.chatSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem clamp(1.5rem, 5vw, 2rem) 10rem;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.messagesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
+}
+
+.messagesEndAnchor {
+  height: 1px;
+  scroll-margin-bottom: 9.5rem;
+}
+
+/* ── Message ─────────────────────────────────────────────── */
+.message {
+  display: flex;
+  gap: 0.75rem;
+  max-width: 85%;
+  animation: messageIn 0.3s var(--ease-soft);
+}
+
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message.aimee {
+  align-self: flex-start;
+}
+
+.msgAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gradient-core);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.msgBubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.msgText {
+  padding: 1rem 1.25rem;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text-soft);
+  background: var(--card-solid);
+  border: 1px solid var(--border-subtle);
+  margin: 0;
+}
+
+.message.user .msgText {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.message.aimee .msgText {
+  border-top-left-radius: 6px;
+}
+
+.message.user .msgText {
+  border-top-right-radius: 6px;
+}
+
+.msgTime {
+  font-size: 0.7rem;
+  color: var(--text-quiet);
+  padding: 0 0.5rem;
+}
+
+.message.user .msgTime {
+  text-align: right;
+}
+
+/* Loading dots animation */
+.loadingDots span {
+  animation: blink 1.4s infinite both;
+}
+.loadingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loadingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* ── Error Banner ─────────────────────────────────────────── */
+.errorBanner {
+  padding: 0.75rem 1rem;
+  background: var(--error-soft);
+  border: 1px solid rgba(212, 107, 107, 0.3);
+  border-radius: 12px;
+  color: var(--error);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* ── Success Container ─────────────────────────────────────── */
+.successContainer {
+  animation: cardAppear 0.4s var(--ease-spring);
+}
+
+@keyframes cardAppear {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.successCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.successIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.successCard h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.successCard p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
+.successActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+/* ── Extraction Container ───────────────────────────────── */
+.composerCardZone {
+  max-width: 720px;
+  margin: 0 auto 0.9rem;
+  width: 100%;
+}
+
+.floatingCardShell {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.floatingCardBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(247, 244, 239, 0.58);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.floatingCardPanel {
+  position: absolute;
+  left: 50%;
+  bottom: 7.5rem;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(68vh, 760px);
+  overflow-y: auto;
+  border-radius: 28px;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+  box-shadow: var(--shadow-lg);
+}
+
+.extractionContainer {
+  animation: cardAppear 0.4s var(--ease-spring);
+}
+
+/* ── Minimized Card ───────────────────────────────────────── */
+.minimizedCardIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-soft);
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+}
+
+.minimizedCardIndicator:hover {
+  background: var(--card-solid);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.minimizedDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.minimizedCardIndicator span:nth-child(2) {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  text-transform: capitalize;
+  text-align: left;
+}
+
+.minimizedExpand {
+  font-size: 0.76rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Input Section ────────────────────────────────────────── */
+.inputSection {
+  padding: 1rem clamp(1.5rem, 5vw, 2rem);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+}
+
+.inputArea {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.chatInput {
+  flex: 1;
+  min-height: 48px;
+  max-height: 120px;
+  padding: 0.875rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card-solid);
+  font-size: 16px;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  transition: border-color var(--duration-fast) var(--ease-soft);
+}
+
+.chatInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.chatInput::placeholder {
+  color: var(--text-quiet);
+}
+
+.sendBtn {
+  min-height: 48px;
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--gradient-core);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(51, 214, 200, 0.2);
+  transition: all var(--duration-normal) var(--ease-soft);
+}
+
+.sendBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(51, 214, 200, 0.35);
+}
+
+.sendBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.talkBtn {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 0.875rem;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-solid);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.talkBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.talkBtn.recording {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(51, 214, 200, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(51, 214, 200, 0); }
+}
+
+.talkBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.talkBtnLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.micHint {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  animation: hintIn 0.3s var(--ease-spring);
+  z-index: 15;
+  max-width: calc(100vw - 3rem);
+}
+
+@keyframes hintIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.micHintClose {
+  background: transparent;
+  border: none;
+  color: var(--text-quiet);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.micHintClose:hover {
+  color: var(--bg);
+}
+
+.inputFooter {
+  max-width: 720px;
+  margin: 0.75rem auto 0;
+  text-align: center;
+}
+
+.privacyNote {
+  font-size: 0.75rem;
+  color: var(--text-quiet);
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .message {
+    max-width: 92%;
+  }
+
+  .msgAvatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .floatingCardPanel {
+    width: calc(100vw - 1rem);
+    bottom: 6.75rem;
+    max-height: 62vh;
+  }
+  
+  .successActions {
+    flex-direction: column;
+  }
+}

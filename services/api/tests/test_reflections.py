@@ -22,6 +22,9 @@ from app.main import app
 from app.db.session import init_db
 from app.db.session import async_session_factory
 from app.models import Reflection
+from app.services import ai_router as ai_router_module
+from app.services import extraction_service as extraction_service_module
+from app.services import facilitation_service as facilitation_service_module
 
 # ─── Test client fixture ───────────────────────────────────────────────────────
 
@@ -181,6 +184,74 @@ async def test_generate_plan_local_fallback(client):
         stored = result.scalar_one()
         assert stored.situation.startswith("enc:v1:")
         assert stored.feelings.startswith("enc:v1:")
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_uses_minimax_when_openai_key_is_empty(client, monkeypatch):
+    payload = {
+        "title": "MiniMax reflection",
+        "situation": "My coworker dismissed an idea in front of the team.",
+        "feelings": "Frustrated and embarrassed",
+        "interpretation": "They do not respect my work",
+        "needs": "Respect and clarity",
+        "fears": "That this becomes a pattern",
+        "desired_outcome": "Address it directly without escalating",
+        "message_draft": "",
+    }
+    resp = await client.post("/reflections", json=payload)
+    assert resp.status_code == 201
+    rid = resp.json()["id"]
+
+    monkeypatch.setattr(ai_router_module, "AI_PROVIDER", "minimax")
+    monkeypatch.setattr(ai_router_module, "MINIMAX_API_KEY", "test-minimax-key")
+    monkeypatch.setattr(ai_router_module, "MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+    monkeypatch.setattr(ai_router_module, "MINIMAX_MODEL", "MiniMax-M2.7")
+    monkeypatch.setattr(ai_router_module, "OPENAI_API_KEY", "")
+    monkeypatch.setenv("AI_PROVIDER", "minimax")
+    monkeypatch.setenv("MINIMAX_API_KEY", "test-minimax-key")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+    monkeypatch.setenv("MINIMAX_MODEL", "MiniMax-M2.7")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    monkeypatch.setattr(extraction_service_module, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(extraction_service_module, "OPENAI_MODEL", "MiniMax-M2.7")
+    monkeypatch.setattr(facilitation_service_module, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(facilitation_service_module, "OPENAI_MODEL", "MiniMax-M2.7")
+    monkeypatch.setattr(facilitation_service_module, "AI_PROVIDER", "minimax")
+
+    async def fake_generate(self, messages, max_tokens=1000):
+        prompt = messages[-1]["content"]
+        if prompt.startswith("Analyze this reflection data and extract emotional intelligence."):
+            return (
+                '{"primary_emotions":[{"name":"frustrated","intensity":0.8,"source_text":"Frustrated and embarrassed"}],'
+                '"secondary_emotions":[],"needs":[{"category":"respect","text":"Respect and clarity","intensity":0.7}],'
+                '"values":[],"conflict_markers":[],"shame_markers":[],"attachment_markers":[],"nervous_system_markers":[],'
+                '"memory_candidates":[],"conversation_risks":[]}'
+            )
+        return (
+            '{"simple_opener":"I want to come back to what happened in the meeting. '
+            'I felt dismissed, and I want to clear it up directly.",'
+            '"emotional_summary":"You are carrying frustration and embarrassment.",'
+            '"needs_summary":"You need respect and clearer communication.",'
+            '"assumptions":"Are you sure this was intentional?","reframe":"Address the moment directly.",'
+            '"avoid_saying":"Do not open with accusations.","conversation_opener":"I want to clear up what happened earlier.",'
+            '"followup_questions":"Can we talk about how that landed?","repair_statement":"I want us to work well together."}'
+        )
+
+    monkeypatch.setattr(ai_router_module.AIRouter, "generate", fake_generate)
+
+    resp2 = await client.post(f"/reflections/{rid}/generate")
+    assert resp2.status_code == 200
+    data = resp2.json()
+    assert data["is_crisis"] is False
+    assert data["output"]["simple_opener"].startswith("I want to come back")
+
+    async with async_session_factory() as session:
+        result = await session.execute(select(Reflection).where(Reflection.id == rid))
+        stored = result.scalar_one()
+        assert stored.output is not None
+        assert stored.output.model_provider == "minimax"
+        assert stored.output.model_name == "MiniMax-M2.7"
 
 
 # ─── Safety: Crisis keyword triggers crisis response ───────────────────────────

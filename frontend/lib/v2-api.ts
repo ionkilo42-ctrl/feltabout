@@ -6,6 +6,7 @@
  */
 
 import { apiUrl } from './api'
+import { useAuthStore } from '@/store/sessionStore'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -167,11 +168,13 @@ async function apiRequest<T>(
   options?: RequestInit
 ): Promise<T> {
   const url = apiUrl(path)
+  const token = useAuthStore.getState().token
   
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   })
@@ -205,24 +208,22 @@ export async function confirmAimeeExtraction(
   })
 }
 
-// ─── Aimee Conversational Chat ──────────────────────────────────────────────────
-
-export interface AimeeChatRequest {
-  message: string
-  context?: string
-}
-
-export interface AimeeChatResponse {
+export interface ChatResponse {
   reply: string
+  safety_status: 'safe' | 'flagged'
+  should_offer_review: boolean
 }
 
 export async function chatWithAimee(
   message: string,
-  context?: string
-): Promise<AimeeChatResponse> {
-  return apiRequest<AimeeChatResponse>('/aimee/chat', {
+  conversationContext?: string
+): Promise<ChatResponse> {
+  return apiRequest<ChatResponse>('/v2/aimee/chat', {
     method: 'POST',
-    body: JSON.stringify({ message, context }),
+    body: JSON.stringify({ 
+      message, 
+      conversation_context: conversationContext || null 
+    }),
   })
 }
 
