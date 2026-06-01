@@ -187,19 +187,29 @@ docker compose logs -f api
 
 ## Screenshots
 
-Planned README screenshots:
+### Homepage
 
-- `docs/screenshots/homepage.png` — landing page with the core headline and primary call to action
-- `docs/screenshots/session-flow.png` — the primary "Say it messy" reflection intake screen
-- `docs/screenshots/generated-output.png` — generated conversation-prep output showing the grounded opener
-- `docs/screenshots/library-view.png` — the private library/history screen with saved-reflection context
+Feltabout's safety-first landing page for difficult-conversation preparation.
 
-Suggested captions:
+![Feltabout homepage](docs/screenshots/homepage.png)
 
-- `Homepage` — Feltabout’s safety-first landing page for difficult-conversation preparation
-- `Reflection Flow` — the main intake step for turning a messy situation into structured reflection
-- `Generated Output` — one calmer, clearer thing to say before the conversation
-- `Library` — a private history view for saved reflections and emerging patterns
+### Reflection Flow
+
+The main intake step for turning a messy situation into structured reflection.
+
+![Feltabout reflection flow](docs/screenshots/session-flow.png)
+
+### Generated Output
+
+One calmer, clearer thing to say before the conversation.
+
+![Feltabout generated output](docs/screenshots/generated-output.png)
+
+### Library
+
+A private history view for saved reflections and emerging patterns.
+
+![Feltabout library view](docs/screenshots/library-view.png)
 
 ## Roadmap
 
