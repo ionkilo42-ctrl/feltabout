@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a defect in the active Feltabout stack
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please keep the report grounded in the current repository behavior and include exact steps to reproduce.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - services/api
+        - frontend
+        - apps/mobile
+        - packages/shared
+        - docker/self-hosting
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include commands, routes, or screens when possible.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Submit ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Python/Node versions, package manager, and whether you used Docker.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste relevant output. Redact secrets.

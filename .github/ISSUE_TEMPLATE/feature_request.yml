@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a scoped enhancement aligned with Feltabout's boundaries
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please keep requests aligned with Feltabout as non-clinical reflection and conversation-prep tooling.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user or maintainer problem does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful version of the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Safety and scope check
+      description: Explain how this stays non-clinical and avoids manipulation or crisis-care claims.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation notes
+      description: Optional notes about likely files, routes, or UI areas.
